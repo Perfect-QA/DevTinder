@@ -743,6 +743,7 @@ authRouter.get('/google/callback',
         path: '/'
       };
       
+      
       res.cookie("token", token, cookieOptions);
       
       // Update login tracking
