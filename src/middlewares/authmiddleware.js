@@ -7,7 +7,28 @@ const userAuth = async (req, res, next) => {
     if(!token){
       return res.status(401).send({ message: "Unauthorized access" });
     }
-    const decodedObj = jwt.verify(token, process.env.JWT_SECRET)
+    let decodedObj;
+    try {
+      decodedObj = jwt.verify(token, process.env.JWT_SECRET);
+    } catch (error) {
+      if (error.name === 'TokenExpiredError') {
+        return res.status(401).send({ 
+          message: "Token expired", 
+          error: "TOKEN_EXPIRED" 
+        });
+      } else if (error.name === 'JsonWebTokenError') {
+        return res.status(401).send({ 
+          message: "Invalid token", 
+          error: "INVALID_TOKEN" 
+        });
+      } else {
+        return res.status(401).send({ 
+          message: "Token verification failed", 
+          error: "TOKEN_VERIFICATION_FAILED" 
+        });
+      }
+    }
+    
     if(!decodedObj){
       return res.status(401).send({ message: "Unauthorized access" });
     }
@@ -18,6 +39,7 @@ const userAuth = async (req, res, next) => {
   }
   req.user = user;
   req.userId = userId;
+  req.userEmail = user.emailId;
   next()
   }catch(error){
     return res.status(401).send({ message: "Unauthorized access: " + error.message });
