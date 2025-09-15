@@ -11,7 +11,7 @@ const authRouter = require("./routes/auth");
 require('dotenv').config();
 
 app.use(cors({
-    origin: process.env.CLIENT_URL || 'http://localhost:7777',
+    origin: process.env.CLIENT_URL || 'http://localhost:3000',
     credentials: true
 }));
 app.use(express.json());

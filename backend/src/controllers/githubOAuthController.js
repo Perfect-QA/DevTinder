@@ -2,12 +2,12 @@ const passport = require('passport');
 const crypto = require('crypto');
 const jwt = require('jsonwebtoken');
 
-// Google OAuth Initiation
-const googleAuth = (req, res) => {
-  if (!process.env.GOOGLE_CLIENT_ID) {
+// GitHub OAuth Initiation
+const githubAuth = (req, res) => {
+  if (!process.env.GITHUB_CLIENT_ID) {
     return res.status(501).json({
       success: false,
-      error: "Google OAuth not configured"
+      error: "GitHub OAuth not configured"
     });
   }
   
@@ -24,21 +24,19 @@ const googleAuth = (req, res) => {
   req.session.codeVerifier = codeVerifier;
   req.session.codeChallenge = codeChallenge;
   
-  passport.authenticate('google', {
-    scope: ['profile', 'email'],
-    state: state,
-    accessType: 'offline',
-    prompt: 'consent'
+  passport.authenticate('github', {
+    scope: ['user:email'],
+    state: state
   })(req, res);
 };
 
-// Google OAuth Callback
-const googleCallback = [
+// GitHub OAuth Callback
+const githubCallback = [
   (req, res, next) => {
-    if (!process.env.GOOGLE_CLIENT_ID) {
+    if (!process.env.GITHUB_CLIENT_ID) {
       return res.status(501).json({
         success: false,
-        error: "Google OAuth not configured"
+        error: "GitHub OAuth not configured"
       });
     }
     
@@ -53,7 +51,7 @@ const googleCallback = [
     // Clear state from session
     delete req.session.oauthState;
     
-    passport.authenticate('google', { 
+    passport.authenticate('github', { 
       failureRedirect: '/auth/login?error=oauth_failed' 
     })(req, res, next);
   },
@@ -61,13 +59,13 @@ const googleCallback = [
     try {
       // Check if user exists (OAuth authentication was successful)
       if (!req.user) {
-        return res.redirect((process.env.CLIENT_URL || 'http://localhost:7777') + '/login?error=oauth_failed');
+        return res.redirect((process.env.CLIENT_URL || 'http://localhost:3000') + '/login?error=oauth_failed');
       }
       
       // Check if JWT secrets are configured
       if (!process.env.JWT_SECRET || !process.env.JWT_REFRESH_SECRET) {
         console.error("JWT secrets not configured. Please set JWT_SECRET and JWT_REFRESH_SECRET in .env file");
-        return res.redirect((process.env.CLIENT_URL || 'http://localhost:7777') + '/login?error=server_config_error');
+        return res.redirect((process.env.CLIENT_URL || 'http://localhost:3000') + '/login?error=server_config_error');
       }
       
       // Generate JWT token for the user
@@ -108,16 +106,16 @@ const googleCallback = [
       await req.user.save();
       
       // Redirect to dashboard or frontend
-      res.redirect((process.env.CLIENT_URL || 'http://localhost:7777') + '/dashboard');
+      res.redirect((process.env.CLIENT_URL || 'http://localhost:3000') + '/dashboard');
     } catch (error) {
-      console.error('Google OAuth callback error:', error);
-      res.redirect((process.env.CLIENT_URL || 'http://localhost:7777') + '/login?error=oauth_failed');
+      console.error('GitHub OAuth callback error:', error);
+      res.redirect((process.env.CLIENT_URL || 'http://localhost:3000') + '/login?error=oauth_failed');
     }
   }
 ];
 
-// Google Account Unlinking
-const unlinkGoogleAccount = async (req, res) => {
+// GitHub Account Unlinking
+const unlinkGithubAccount = async (req, res) => {
   try {
     const User = require('../models/user');
     const user = await User.findById(req.userId);
@@ -129,12 +127,13 @@ const unlinkGoogleAccount = async (req, res) => {
       });
     }
     
-    // Unlink Google account
-    user.googleId = undefined;
-    user.googleAccessToken = undefined;
-    user.googleRefreshToken = undefined;
-    user.googleTokenExpiry = undefined;
-    user.googleProfileUrl = undefined;
+    // Unlink GitHub account
+    user.githubId = undefined;
+    user.githubAccessToken = undefined;
+    user.githubRefreshToken = undefined;
+    user.githubTokenExpiry = undefined;
+    user.githubProfileUrl = undefined;
+    user.githubUsername = undefined;
     
     // Don't allow unlinking if it's the only auth method
     const hasPassword = user.password && user.password.length > 0;
@@ -148,16 +147,16 @@ const unlinkGoogleAccount = async (req, res) => {
       });
     }
     
-    // Remove Google from linked accounts
+    // Remove GitHub from linked accounts
     if (user.oauthAccountsLinked) {
-      user.oauthAccountsLinked = user.oauthAccountsLinked.filter(provider => provider !== 'google');
+      user.oauthAccountsLinked = user.oauthAccountsLinked.filter(provider => provider !== 'github');
     }
     
     await user.save();
     
     res.json({
       success: true,
-      message: "Google account unlinked successfully",
+      message: "GitHub account unlinked successfully",
       user: {
         hasGoogle: !!user.googleId,
         hasGithub: !!user.githubId,
@@ -167,29 +166,30 @@ const unlinkGoogleAccount = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Failed to unlink Google account: ' + error.message
+      error: 'Failed to unlink GitHub account: ' + error.message
     });
   }
 };
 
-// Get Google Profile Info
-const getGoogleProfile = async (req, res) => {
+// Get GitHub Profile Info
+const getGithubProfile = async (req, res) => {
   try {
     const User = require('../models/user');
     const user = await User.findById(req.userId);
     
-    if (!user || !user.googleId) {
+    if (!user || !user.githubId) {
       return res.status(404).json({
         success: false,
-        error: "Google account not linked"
+        error: "GitHub account not linked"
       });
     }
     
     res.json({
       success: true,
-      googleProfile: {
-        googleId: user.googleId,
-        googleProfileUrl: user.googleProfileUrl,
+      githubProfile: {
+        githubId: user.githubId,
+        githubUsername: user.githubUsername,
+        githubProfileUrl: user.githubProfileUrl,
         oauthScopes: user.oauthScopes,
         oauthConsentDate: user.oauthConsentDate
       }
@@ -197,14 +197,43 @@ const getGoogleProfile = async (req, res) => {
   } catch (error) {
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch Google profile: ' + error.message
+      error: 'Failed to fetch GitHub profile: ' + error.message
+    });
+  }
+};
+
+// Get GitHub Repositories (if access token is available)
+const getGithubRepositories = async (req, res) => {
+  try {
+    const User = require('../models/user');
+    const user = await User.findById(req.userId);
+    
+    if (!user || !user.githubId || !user.githubAccessToken) {
+      return res.status(404).json({
+        success: false,
+        error: "GitHub account not linked or access token not available"
+      });
+    }
+    
+    // Note: In a real implementation, you would call GitHub's API here
+    // For now, we'll return a placeholder response
+    res.json({
+      success: true,
+      message: "GitHub repositories feature not implemented yet",
+      repositories: []
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch GitHub repositories: ' + error.message
     });
   }
 };
 
 module.exports = {
-  googleAuth,
-  googleCallback,
-  unlinkGoogleAccount,
-  getGoogleProfile
+  githubAuth,
+  githubCallback,
+  unlinkGithubAccount,
+  getGithubProfile,
+  getGithubRepositories
 };
