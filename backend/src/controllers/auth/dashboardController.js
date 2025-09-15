@@ -128,24 +128,37 @@ const refreshToken = async (req, res) => {
     const newToken = jwt.sign(
       { userId: user._id, emailId: user.emailId },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: process.env.JWT_EXPIRY }
     );
     
     // Generate new refresh token
     const newRefreshToken = jwt.sign(
       { userId: user._id, emailId: user.emailId },
       process.env.JWT_REFRESH_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: process.env.JWT_EXPIRY }
     );
     
     // Update user with new refresh token
     user.refreshToken = newRefreshToken;
     await user.save();
     
-    return sendSuccessResponse(res, "Token refreshed successfully", {
-      token: newToken,
-      refreshToken: newRefreshToken
+    // Set new JWT token as HTTP-only cookie
+    res.cookie('token', newToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: process.env.COOKIE_EXPIRY
     });
+    
+    // Set new refresh token as HTTP-only cookie
+    res.cookie('refreshToken', newRefreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: process.env.COOKIE_EXPIRY
+    });
+    
+    return sendSuccessResponse(res, "Token refreshed successfully");
     
   } catch (error) {
     console.error("Refresh token error:", error);

@@ -72,14 +72,14 @@ const githubCallback = [
       const token = jwt.sign(
         { userId: req.user._id, emailId: req.user.emailId },
         process.env.JWT_SECRET,
-        { expiresIn: '24h' }
+        { expiresIn: process.env.JWT_EXPIRY }
       );
       
       // Generate refresh token
       const refreshToken = jwt.sign(
         { userId: req.user._id, emailId: req.user.emailId },
         process.env.JWT_REFRESH_SECRET,
-        { expiresIn: '7d' }
+        { expiresIn: process.env.JWT_EXPIRY }
       );
       
       // Update user with refresh token

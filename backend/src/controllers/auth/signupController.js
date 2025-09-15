@@ -55,33 +55,47 @@ const signup = async (req, res) => {
     const token = jwt.sign(
       { userId: user._id, emailId: user.emailId },
       process.env.JWT_SECRET,
-      { expiresIn: '24h' }
+      { expiresIn: process.env.JWT_EXPIRY }
     );
     
     // Generate refresh token
     const refreshToken = jwt.sign(
       { userId: user._id, emailId: user.emailId },
       process.env.JWT_REFRESH_SECRET,
-      { expiresIn: '7d' }
+      { expiresIn: process.env.JWT_EXPIRY }
     );
     
     // Update user with refresh token
     user.refreshToken = refreshToken;
     await user.save();
     
+    // Set JWT token as HTTP-only cookie
+    res.cookie('token', token, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: process.env.COOKIE_EXPIRY
+    });
+    
+    // Set refresh token as HTTP-only cookie
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: process.env.COOKIE_EXPIRY
+    });
+    
     // Log successful signup
     console.log(`New user registered: ${user.emailId} at ${new Date().toISOString()}`);
     
-    // Return success response
+    // Return success response (without tokens in body for security)
     return sendSuccessResponse(res, "User registered successfully", {
       user: {
         id: user._id,
         firstName: user.firstName,
         lastName: user.lastName,
         emailId: user.emailId
-      },
-      token: token,
-      refreshToken: refreshToken
+      }
     });
     
   } catch (error) {

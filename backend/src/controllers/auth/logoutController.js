@@ -32,6 +32,10 @@ const logout = async (req, res) => {
       await user.save();
     }
     
+    // Clear cookies
+    res.clearCookie('token');
+    res.clearCookie('refreshToken');
+    
     // Log logout
     console.log(`User ${req.userEmail} logged out at ${new Date().toISOString()}`);
     
@@ -68,6 +72,10 @@ const oauthLogout = async (req, res) => {
     }
     
     await user.save();
+    
+    // Clear cookies
+    res.clearCookie('token');
+    res.clearCookie('refreshToken');
     
     // Log OAuth logout
     console.log(`OAuth logout for user ${req.userEmail}, revoked tokens for: ${provider || 'all'}`);
