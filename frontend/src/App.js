@@ -1,17 +1,24 @@
 import React from 'react';
+import { Provider } from 'react-redux';
+import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
+import { store } from './store';
+import Layout from './components/Layout';
+import UploadTestData from './components/UploadTestData';
 import './App.css';
 
 function App() {
   return (
-    <div className="App">
-      <header className="App-header">
-        <h1>Perfect AI</h1>
-        <p>Advanced Authentication System</p>
-      </header>
-      <main>
-        <div>Welcome to Perfect AI</div>
-      </main>
-    </div>
+    <Provider store={store}>
+      <Router>
+        <Routes>
+          <Route path="/" element={
+            <Layout>
+              <UploadTestData />
+            </Layout>
+          } />
+        </Routes>
+      </Router>
+    </Provider>
   );
 }
 

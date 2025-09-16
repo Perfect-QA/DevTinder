@@ -1,27 +1,29 @@
+/* Custom styles for Perfect AI */
 .App {
-  text-align: center;
+  min-height: 100vh;
 }
 
-.App-header {
-  background-color: #282c34;
-  padding: 20px;
-  color: white;
-  margin-bottom: 20px;
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
 }
 
-.App-header h1 {
-  margin: 0;
-  font-size: 2.5rem;
+::-webkit-scrollbar-track {
+  background: #f1f1f1;
 }
 
-.App-header p {
-  margin: 10px 0 0 0;
-  font-size: 1.2rem;
-  opacity: 0.8;
+::-webkit-scrollbar-thumb {
+  background: #c1c1c1;
+  border-radius: 3px;
 }
 
-main {
-  max-width: 1200px;
-  margin: 0 auto;
-  padding: 20px;
+::-webkit-scrollbar-thumb:hover {
+  background: #a8a8a8;
+}
+
+/* Smooth transitions for all interactive elements */
+* {
+  transition-property: color, background-color, border-color, text-decoration-color, fill, stroke, opacity, box-shadow, transform, filter, backdrop-filter;
+  transition-timing-function: cubic-bezier(0.4, 0, 0.2, 1);
+  transition-duration: 150ms;
 }
