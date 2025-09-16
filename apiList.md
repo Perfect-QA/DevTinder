@@ -21,3 +21,5 @@
 
 
 Status: ignored, interested, accepeted, rejected
+
+$ cd frontend; npm start

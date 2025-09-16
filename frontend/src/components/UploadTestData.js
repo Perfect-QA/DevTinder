@@ -3,7 +3,8 @@ import {
   ArrowUpTrayIcon, 
   ArrowsPointingOutIcon,
   PencilIcon,
-  ChevronDownIcon
+  ChevronDownIcon,
+  XMarkIcon
 } from '@heroicons/react/24/outline';
 
 const UploadTestData = () => {
@@ -11,7 +12,10 @@ const UploadTestData = () => {
   const [isRealTime, setIsRealTime] = useState(true);
   const [selectedTests, setSelectedTests] = useState(new Set());
   const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const [uploadedFiles, setUploadedFiles] = useState([]);
+  const [isUploading, setIsUploading] = useState(false);
   const dropdownRef = useRef(null);
+  const fileInputRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -125,6 +129,52 @@ const UploadTestData = () => {
     setShowExportDropdown(false);
   };
 
+  const handleFileSelect = () => {
+    fileInputRef.current?.click();
+  };
+
+  const handleFileChange = async (event) => {
+    const files = event.target.files;
+    if (!files || files.length === 0) return;
+
+    setIsUploading(true);
+    
+    try {
+      const formData = new FormData();
+      Array.from(files).forEach(file => {
+        formData.append('files', file);
+      });
+
+      const response = await fetch('http://localhost:5000/upload', {
+        method: 'POST',
+        body: formData,
+      });
+
+      const result = await response.json();
+      
+      if (result.success) {
+        setUploadedFiles(prev => [...prev, ...result.files]);
+        console.log('Files uploaded successfully:', result.files);
+      } else {
+        console.error('Upload failed:', result.error);
+        alert('Upload failed: ' + result.error);
+      }
+    } catch (error) {
+      console.error('Upload error:', error);
+      alert('Upload error: ' + error.message);
+    } finally {
+      setIsUploading(false);
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+    }
+  };
+
+  const removeFile = (fileId) => {
+    setUploadedFiles(prev => prev.filter(file => file.id !== fileId));
+  };
+
   const getPriorityColor = (priority) => {
     switch (priority) {
       case 'P1': return 'bg-red-500 text-white';
@@ -135,7 +185,7 @@ const UploadTestData = () => {
   };
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 px-8">
       {/* Test Data Input Section */}
       <div className="bg-gray-800 rounded-lg p-6 border border-gray-700">
         <div className="space-y-4">
@@ -146,7 +196,7 @@ const UploadTestData = () => {
             <textarea
               value={testData}
               onChange={(e) => setTestData(e.target.value)}
-              className="w-full h-32 bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
+              className="w-full h-96 bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
               placeholder="Enter your test data content here..."
             />
           </div>
@@ -172,10 +222,38 @@ const UploadTestData = () => {
 
           <div className="flex items-center space-x-4">
             <span className="text-sm text-gray-300">Or upload a file:</span>
-            <button className="flex items-center space-x-2 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-600 transition-colors">
-              <ArrowUpTrayIcon className="w-4 h-4" />
-              <span>Choose File</span>
-            </button>
+            <div className="flex items-center space-x-2">
+              <button 
+                onClick={handleFileSelect}
+                disabled={isUploading}
+                className="flex items-center space-x-2 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <ArrowUpTrayIcon className="w-4 h-4" />
+                <span>{isUploading ? 'Uploading...' : 'Choose File'}</span>
+              </button>
+              <input
+                ref={fileInputRef}
+                type="file"
+                multiple
+                accept=".txt,.docx,.png,.jpg,.jpeg,.pdf,.doc,.xls,.xlsx,.ppt,.pptx,.zip,.rar"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              
+              {/* Display uploaded files inline - compact style */}
+              {uploadedFiles.map((file, index) => (
+                <div key={index} className="flex items-center space-x-1 bg-gray-600 px-2 py-1 rounded text-xs">
+                  <span className="text-gray-300 truncate max-w-24">{file.originalName}</span>
+                  <button
+                    onClick={() => removeFile(file.id)}
+                    className="text-gray-400 hover:text-red-400 transition-colors ml-1"
+                    title="Remove file"
+                  >
+                    <XMarkIcon className="w-3 h-3" />
+                  </button>
+                </div>
+              ))}
+            </div>
           </div>
 
           <button className="w-full bg-teal-500 hover:bg-teal-600 text-white font-medium py-3 px-6 rounded-lg transition-colors">
