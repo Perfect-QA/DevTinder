@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { 
-  ArrowUpTrayIcon, 
+import {
+  ArrowUpTrayIcon,
   ArrowsPointingOutIcon,
   PencilIcon,
   ChevronDownIcon,
-  XMarkIcon
+  XMarkIcon,
+  DocumentIcon
 } from '@heroicons/react/24/outline';
 
 const UploadTestData = () => {
@@ -14,8 +15,12 @@ const UploadTestData = () => {
   const [showExportDropdown, setShowExportDropdown] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState([]);
   const [isUploading, setIsUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState(null);
+  const [showPreview, setShowPreview] = useState(false);
+  const [isDragOver, setIsDragOver] = useState(false);
   const dropdownRef = useRef(null);
   const fileInputRef = useRef(null);
+  const dropZoneRef = useRef(null);
 
   useEffect(() => {
     const handleClickOutside = (event) => {
@@ -137,11 +142,112 @@ const UploadTestData = () => {
     const files = event.target.files;
     if (!files || files.length === 0) return;
 
+    await processFiles(Array.from(files));
+    
+    // Reset file input
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  };
+
+  const removeFile = (fileId) => {
+    setUploadedFiles(prev => prev.filter(file => file.id !== fileId));
+  };
+
+  const openFile = (file) => {
+    try {
+      // Construct the full URL for the file
+      const fileUrl = `http://localhost:5000${file.url}`;
+      
+      // Check file type to determine how to open it
+      if (file.type === 'image') {
+        // For images, show in preview modal
+        setSelectedFile(file);
+        setShowPreview(true);
+      } else {
+        // For other files, open in new tab or download
+        const link = document.createElement('a');
+        link.href = fileUrl;
+        link.download = file.originalName;
+        link.target = '_blank';
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+      }
+    } catch (error) {
+      console.error('Error opening file:', error);
+      alert('Error opening file: ' + error.message);
+    }
+  };
+
+  const closePreview = () => {
+    setShowPreview(false);
+    setSelectedFile(null);
+  };
+
+  // Drag and drop handlers
+  const handleDragEnter = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(true);
+  };
+
+  const handleDragLeave = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    // Only set drag over to false if we're leaving the drop zone entirely
+    if (!dropZoneRef.current?.contains(e.relatedTarget)) {
+      setIsDragOver(false);
+    }
+  };
+
+  const handleDragOver = (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+  };
+
+  const handleDrop = async (e) => {
+    e.preventDefault();
+    e.stopPropagation();
+    setIsDragOver(false);
+
+    const files = Array.from(e.dataTransfer.files);
+    if (files.length === 0) return;
+
+    await processFiles(files);
+  };
+
+  const processFiles = async (files) => {
     setIsUploading(true);
     
     try {
+      // Filter out duplicate files
+      const newFiles = files.filter(file => {
+        const isDuplicate = uploadedFiles.some(uploadedFile => 
+          uploadedFile.originalName === file.name && 
+          uploadedFile.size === file.size
+        );
+        
+        if (isDuplicate) {
+          console.log(`Skipping duplicate file: ${file.name}`);
+          return false;
+        }
+        return true;
+      });
+
+      if (newFiles.length === 0) {
+        alert('All selected files are already uploaded.');
+        setIsUploading(false);
+        return;
+      }
+
+      if (newFiles.length < files.length) {
+        const duplicateCount = files.length - newFiles.length;
+        console.log(`Skipped ${duplicateCount} duplicate file(s)`);
+      }
+
       const formData = new FormData();
-      Array.from(files).forEach(file => {
+      newFiles.forEach(file => {
         formData.append('files', file);
       });
 
@@ -155,6 +261,11 @@ const UploadTestData = () => {
       if (result.success) {
         setUploadedFiles(prev => [...prev, ...result.files]);
         console.log('Files uploaded successfully:', result.files);
+        
+        if (newFiles.length < files.length) {
+          const duplicateCount = files.length - newFiles.length;
+          console.log(`Uploaded ${result.files.length} new file(s). Skipped ${duplicateCount} duplicate file(s).`);
+        }
       } else {
         console.error('Upload failed:', result.error);
         alert('Upload failed: ' + result.error);
@@ -164,15 +275,7 @@ const UploadTestData = () => {
       alert('Upload error: ' + error.message);
     } finally {
       setIsUploading(false);
-      // Reset file input
-      if (fileInputRef.current) {
-        fileInputRef.current.value = '';
-      }
     }
-  };
-
-  const removeFile = (fileId) => {
-    setUploadedFiles(prev => prev.filter(file => file.id !== fileId));
   };
 
   const getPriorityColor = (priority) => {
@@ -193,12 +296,12 @@ const UploadTestData = () => {
             <label className="block text-sm font-medium text-gray-300 mb-2">
               Test Data Content
             </label>
-            <textarea
-              value={testData}
-              onChange={(e) => setTestData(e.target.value)}
-              className="w-full h-96 bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
-              placeholder="Enter your test data content here..."
-            />
+                <textarea
+                  value={testData}
+                  onChange={(e) => setTestData(e.target.value)}
+                  className="w-full h-96 bg-gray-700 border border-gray-600 rounded-lg px-4 py-3 text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-teal-500 focus:border-transparent resize-none"
+                  placeholder="Enter your test data content here..."
+                />
           </div>
           
           <div className="flex items-center justify-between">
@@ -220,40 +323,83 @@ const UploadTestData = () => {
             </div>
           </div>
 
-          <div className="flex items-center space-x-4">
+          <div className="space-y-4">
             <span className="text-sm text-gray-300">Or upload a file:</span>
-            <div className="flex items-center space-x-2">
-              <button 
-                onClick={handleFileSelect}
-                disabled={isUploading}
-                className="flex items-center space-x-2 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-600 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                <ArrowUpTrayIcon className="w-4 h-4" />
-                <span>{isUploading ? 'Uploading...' : 'Choose File'}</span>
-              </button>
+            
+            {/* Drag and Drop Zone */}
+            <div
+              ref={dropZoneRef}
+              onDragEnter={!isUploading ? handleDragEnter : undefined}
+              onDragLeave={!isUploading ? handleDragLeave : undefined}
+              onDragOver={!isUploading ? handleDragOver : undefined}
+              onDrop={!isUploading ? handleDrop : undefined}
+              className={`relative border-2 border-dashed rounded-lg p-6 transition-all duration-200 ${
+                isUploading
+                  ? 'border-yellow-400 bg-yellow-500/10 cursor-not-allowed'
+                  : isDragOver
+                    ? 'border-teal-400 bg-teal-500/10'
+                    : 'border-gray-600 bg-gray-700/50 hover:border-gray-500 hover:bg-gray-700/70'
+              }`}
+            >
+              <div className="text-center">
+                <ArrowUpTrayIcon className={`w-8 h-8 mx-auto mb-2 ${
+                  isDragOver ? 'text-teal-400' : 'text-gray-400'
+                }`} />
+                <p className={`text-sm ${
+                  isDragOver ? 'text-teal-400' : isUploading ? 'text-yellow-400' : 'text-gray-300'
+                }`}>
+                  {isUploading 
+                    ? 'Uploading files...' 
+                    : isDragOver 
+                      ? 'Drop files here to upload' 
+                      : 'Drag and drop files here, or click to browse'
+                  }
+                </p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Supports: .txt, .docx, .png, .jpg, .jpeg, .pdf, .doc, .xls, .xlsx, .ppt, .pptx, .zip, .rar
+                </p>
+              </div>
+              
               <input
                 ref={fileInputRef}
                 type="file"
                 multiple
                 accept=".txt,.docx,.png,.jpg,.jpeg,.pdf,.doc,.xls,.xlsx,.ppt,.pptx,.zip,.rar"
                 onChange={handleFileChange}
-                className="hidden"
+                disabled={isUploading}
+                className={`absolute inset-0 w-full h-full opacity-0 ${
+                  isUploading ? 'cursor-not-allowed' : 'cursor-pointer'
+                }`}
               />
-              
-              {/* Display uploaded files inline - compact style */}
-              {uploadedFiles.map((file, index) => (
-                <div key={index} className="flex items-center space-x-1 bg-gray-600 px-2 py-1 rounded text-xs">
-                  <span className="text-gray-300 truncate max-w-24">{file.originalName}</span>
-                  <button
-                    onClick={() => removeFile(file.id)}
-                    className="text-gray-400 hover:text-red-400 transition-colors ml-1"
-                    title="Remove file"
-                  >
-                    <XMarkIcon className="w-3 h-3" />
-                  </button>
-                </div>
-              ))}
             </div>
+
+            {/* Uploaded Files Display */}
+            {uploadedFiles.length > 0 && (
+              <div className="space-y-2">
+                <span className="text-sm text-gray-300">Uploaded files:</span>
+                <div className="flex flex-wrap gap-2">
+                  {uploadedFiles.map((file, index) => (
+                    <div key={index} className="flex items-center space-x-2 bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-xs">
+                      <DocumentIcon className="w-4 h-4 text-blue-400 flex-shrink-0" />
+                      <button
+                        onClick={() => openFile(file)}
+                        className="text-gray-300 hover:text-teal-400 transition-colors truncate max-w-32 text-left"
+                        title={`Click to view: ${file.originalName}`}
+                      >
+                        {file.originalName}
+                      </button>
+                      <button
+                        onClick={() => removeFile(file.id)}
+                        className="text-gray-400 hover:text-red-400 transition-colors ml-1 flex-shrink-0"
+                        title="Remove file"
+                      >
+                        <XMarkIcon className="w-3 h-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
           </div>
 
           <button className="w-full bg-teal-500 hover:bg-teal-600 text-white font-medium py-3 px-6 rounded-lg transition-colors">
@@ -282,7 +428,7 @@ const UploadTestData = () => {
                 />
                 <span className="text-sm">Select All</span>
               </label>
-              <select className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                  <select className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
                 <option>Select project key *</option>
               </select>
               <div className="relative" ref={dropdownRef}>
@@ -294,8 +440,8 @@ const UploadTestData = () => {
                   <ChevronDownIcon className="w-4 h-4" />
                 </button>
                 
-                {showExportDropdown && (
-                  <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-10">
+                    {showExportDropdown && (
+                      <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-10">
                     <button
                       onClick={exportAsCSV}
                       className="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-700 transition-colors first:rounded-t-lg"
@@ -349,7 +495,7 @@ const UploadTestData = () => {
                 </th>
               </tr>
             </thead>
-            <tbody className="bg-gray-800 divide-y divide-gray-700">
+                <tbody className="bg-gray-800 divide-y divide-gray-700">
               {testCases.map((test) => (
                 <tr key={test.id} className="hover:bg-gray-700">
                   <td className="px-6 py-4 whitespace-nowrap">
@@ -396,6 +542,96 @@ const UploadTestData = () => {
           </table>
         </div>
       </div>
+
+      {/* File Preview Modal */}
+      {showPreview && selectedFile && (
+        <div className="fixed inset-0 bg-black bg-opacity-80 flex items-center justify-center z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-4xl max-h-[90vh] overflow-auto border border-gray-700">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-xl font-semibold text-white">
+                {selectedFile.originalName}
+              </h3>
+              <button
+                onClick={closePreview}
+                className="text-gray-400 hover:text-white transition-colors"
+              >
+                <XMarkIcon className="w-6 h-6" />
+              </button>
+            </div>
+            
+            <div className="space-y-4">
+              {/* File Info */}
+              <div className="bg-gray-700 rounded-lg p-4 border border-gray-700">
+                <div className="grid grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <span className="text-gray-400">File Name:</span>
+                    <p className="text-white">{selectedFile.originalName}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">File Size:</span>
+                    <p className="text-white">{(selectedFile.size / 1024).toFixed(2)} KB</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">File Type:</span>
+                    <p className="text-white">{selectedFile.mimetype}</p>
+                  </div>
+                  <div>
+                    <span className="text-gray-400">Uploaded:</span>
+                    <p className="text-white">{new Date(selectedFile.uploadedAt).toLocaleString()}</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Image Preview */}
+              {selectedFile.type === 'image' && (
+                <div className="bg-gray-700 rounded-lg p-4 border border-gray-700">
+                  <img
+                    src={`http://localhost:5000${selectedFile.url}`}
+                    alt={selectedFile.originalName}
+                    className="max-w-full max-h-96 mx-auto rounded-lg"
+                    onError={(e) => {
+                      e.target.style.display = 'none';
+                      e.target.nextSibling.style.display = 'block';
+                    }}
+                  />
+                  <div className="hidden text-center text-gray-400 py-8">
+                    <p>Failed to load image preview</p>
+                    <button
+                      onClick={() => window.open(`http://localhost:5000${selectedFile.url}`, '_blank')}
+                      className="mt-2 px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors"
+                    >
+                      Open in New Tab
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Non-image files */}
+              {selectedFile.type !== 'image' && (
+                <div className="bg-gray-700 rounded-lg p-4 text-center border border-gray-700">
+                  <div className="text-gray-400 mb-4">
+                    <p>Preview not available for this file type</p>
+                  </div>
+                  <button
+                    onClick={() => {
+                      const link = document.createElement('a');
+                      link.href = `http://localhost:5000${selectedFile.url}`;
+                      link.download = selectedFile.originalName;
+                      link.target = '_blank';
+                      document.body.appendChild(link);
+                      link.click();
+                      document.body.removeChild(link);
+                    }}
+                    className="px-6 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors"
+                  >
+                    Download File
+                  </button>
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

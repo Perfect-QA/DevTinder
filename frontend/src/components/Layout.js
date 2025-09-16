@@ -7,7 +7,7 @@ const Layout = ({ children }) => {
     <div className="min-h-screen bg-black flex">
       {/* Sidebar */}
       <Sidebar />
-      
+
       {/* Main content area */}
       <div className="flex-1 flex flex-col">
         <Header />
