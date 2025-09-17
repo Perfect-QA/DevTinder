@@ -49,6 +49,19 @@ export interface IUser extends Document {
     // JWT refresh token
     refreshToken?: string;
     refreshTokenExpiry?: Date;
+    // Session and device management
+    activeSessions: Array<{
+        sessionId: string;
+        deviceId: string;
+        deviceName: string;
+        deviceType: 'desktop' | 'mobile' | 'tablet' | 'unknown';
+        userAgent: string;
+        ipAddress: string;
+        location?: string;
+        lastActivity: Date;
+        createdAt: Date;
+        isActive: boolean;
+    }>;
     // OAuth fields
     googleId?: string;
     githubId?: string;
@@ -87,6 +100,12 @@ export interface IUser extends Document {
     getLockTimeRemaining(): number;
     generateRefreshToken(): string;
     validateRefreshToken(token: string): boolean;
+    addSession(sessionId: string, deviceId: string, deviceName: string, userAgent: string, ipAddress: string): void;
+    removeSession(sessionId: string): void;
+    updateSessionActivity(sessionId: string): void;
+    getActiveSessions(): any[];
+    getSessionById(sessionId: string): any;
+    removeAllSessions(): void;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -171,6 +190,49 @@ const userSchema = new Schema<IUser>({
     refreshTokenExpiry: {
         type: Date
     },
+    // Session and device management
+    activeSessions: [{
+        sessionId: {
+            type: String,
+            required: true
+        },
+        deviceId: {
+            type: String,
+            required: true
+        },
+        deviceName: {
+            type: String,
+            required: true
+        },
+        deviceType: {
+            type: String,
+            enum: ['desktop', 'mobile', 'tablet', 'unknown'],
+            default: 'unknown'
+        },
+        userAgent: {
+            type: String,
+            required: true
+        },
+        ipAddress: {
+            type: String,
+            required: true
+        },
+        location: {
+            type: String
+        },
+        lastActivity: {
+            type: Date,
+            default: Date.now
+        },
+        createdAt: {
+            type: Date,
+            default: Date.now
+        },
+        isActive: {
+            type: Boolean,
+            default: true
+        }
+    }],
     // OAuth fields
     googleId: {
         type: String,
@@ -321,6 +383,84 @@ userSchema.methods.validateRefreshToken = function(token: string): boolean {
     } catch (error) {
         return false;
     }
+}
+
+userSchema.methods.addSession = function(sessionId: string, deviceId: string, deviceName: string, userAgent: string, ipAddress: string): void {
+    const user = this as IUser;
+    
+    // Detect device type from user agent
+    const deviceType = this.detectDeviceType(userAgent);
+    
+    // Check if session already exists
+    const existingSessionIndex = user.activeSessions.findIndex(session => session.sessionId === sessionId);
+    
+    if (existingSessionIndex >= 0) {
+        // Update existing session
+        user.activeSessions[existingSessionIndex].lastActivity = new Date();
+        user.activeSessions[existingSessionIndex].isActive = true;
+        user.activeSessions[existingSessionIndex].ipAddress = ipAddress;
+    } else {
+        // Add new session
+        user.activeSessions.push({
+            sessionId,
+            deviceId,
+            deviceName,
+            deviceType,
+            userAgent,
+            ipAddress,
+            lastActivity: new Date(),
+            createdAt: new Date(),
+            isActive: true
+        });
+    }
+}
+
+    userSchema.methods.removeSession = function(sessionId: string): void {
+        const user = this as IUser;
+        user.activeSessions = user.activeSessions.filter(session => session.sessionId !== sessionId);
+    }
+
+userSchema.methods.updateSessionActivity = function(sessionId: string): void {
+    const user = this as IUser;
+    const session = user.activeSessions.find(s => s.sessionId === sessionId);
+    if (session) {
+        session.lastActivity = new Date();
+    }
+}
+
+userSchema.methods.getActiveSessions = function(): any[] {
+    const user = this as IUser;
+    return user.activeSessions.filter(session => session.isActive);
+}
+
+userSchema.methods.getSessionById = function(sessionId: string): any {
+    const user = this as IUser;
+    return user.activeSessions.find(session => session.sessionId === sessionId);
+}
+
+userSchema.methods.removeAllSessions = function(): void {
+    const user = this as IUser;
+    user.activeSessions = [];
+}
+
+// Helper method to detect device type
+userSchema.methods.detectDeviceType = function(userAgent: string): 'desktop' | 'mobile' | 'tablet' | 'unknown' {
+    const ua = userAgent.toLowerCase();
+    
+    // Check for mobile devices first
+    if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone') || ua.includes('blackberry') || ua.includes('windows phone')) {
+        return 'mobile';
+    } 
+    // Check for tablets
+    else if (ua.includes('tablet') || ua.includes('ipad') || (ua.includes('android') && !ua.includes('mobile'))) {
+        return 'tablet';
+    } 
+    // Check for desktop operating systems
+    else if (ua.includes('windows') || ua.includes('macintosh') || ua.includes('mac os') || ua.includes('linux') || ua.includes('x11')) {
+        return 'desktop';
+    }
+    
+    return 'unknown';
 }
 
 export default mongoose.model<IUser>("User", userSchema);

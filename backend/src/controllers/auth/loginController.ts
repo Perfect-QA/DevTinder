@@ -1,8 +1,10 @@
 import { validateLoginData } from "../../utils/loginValidation";
 import { validatePassword, getPasswordStrength } from "../../utils/passwordValidation";
+import { generateSessionId } from "./sessionController";
 import User from "../../models/user";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
+import crypto from "crypto";
 import { Request, Response } from 'express';
 
 // DRY: Common error response handler
@@ -82,6 +84,17 @@ const login = async (req: Request, res: Response): Promise<void> => {
     user.lastLogin = new Date();
     user.loginIP = req.ip || req.connection.remoteAddress || 'unknown';
     
+    // Create new session
+    const sessionId = generateSessionId();
+    const deviceId = req.headers['x-device-id'] as string || crypto.randomBytes(16).toString('hex');
+    const userAgent = req.headers['user-agent'] || 'Unknown';
+    const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
+    
+    // Generate better device name from user agent
+    const deviceName = generateDeviceName(userAgent, req.headers['x-device-name'] as string);
+    
+    user.addSession(sessionId, deviceId, deviceName, userAgent, ipAddress);
+    
     // Save updated user information
     await user.save();
     
@@ -129,6 +142,12 @@ const login = async (req: Request, res: Response): Promise<void> => {
         loginIP: user.loginIP,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
+      },
+      session: {
+        sessionId,
+        deviceId,
+        deviceName,
+        deviceType: user.getSessionById(sessionId)?.deviceType || 'unknown'
       }
     });
     
@@ -136,6 +155,39 @@ const login = async (req: Request, res: Response): Promise<void> => {
     console.error("Login error:", error);
     sendErrorResponse(res, 500, "Internal server error");
   }
+};
+
+// Helper function to generate device name from user agent
+const generateDeviceName = (userAgent: string, customDeviceName?: string): string => {
+  if (customDeviceName) {
+    return customDeviceName;
+  }
+  
+  const ua = userAgent.toLowerCase();
+  
+  // Detect browser
+  let browser = 'Unknown Browser';
+  if (ua.includes('chrome')) browser = 'Chrome';
+  else if (ua.includes('firefox')) browser = 'Firefox';
+  else if (ua.includes('safari')) browser = 'Safari';
+  else if (ua.includes('edge')) browser = 'Edge';
+  else if (ua.includes('opera')) browser = 'Opera';
+  
+  // Detect operating system
+  let os = 'Unknown OS';
+  if (ua.includes('windows')) os = 'Windows';
+  else if (ua.includes('macintosh') || ua.includes('mac os')) os = 'macOS';
+  else if (ua.includes('linux')) os = 'Linux';
+  else if (ua.includes('android')) os = 'Android';
+  else if (ua.includes('iphone') || ua.includes('ipad')) os = 'iOS';
+  
+  // Detect device type
+  let deviceType = '';
+  if (ua.includes('mobile')) deviceType = 'Mobile';
+  else if (ua.includes('tablet') || ua.includes('ipad')) deviceType = 'Tablet';
+  else deviceType = 'Desktop';
+  
+  return `${browser} on ${os} ${deviceType}`;
 };
 
 export {

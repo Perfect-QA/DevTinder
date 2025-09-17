@@ -8,6 +8,7 @@ import { signup } from '../controllers/auth/signupController';
 import { login } from '../controllers/auth/loginController';
 import { logout } from '../controllers/auth/logoutController';
 import { refreshToken } from '../controllers/auth/refreshTokenController';
+import { getActiveSessions, removeSession, removeAllSessions, getSessionStats, updateSessionActivity } from '../controllers/auth/sessionController';
 import { getDashboard, getUserInfo } from '../controllers/auth/dashboardController';
 import { 
   googleAuth, 
@@ -44,6 +45,13 @@ authRouter.get("/user-info", userAuth, getUserInfo); // Alias for user-info
 
 // Refresh token route
 authRouter.post("/refresh", refreshToken);
+
+// Session management routes
+authRouter.get("/sessions", userAuth, getActiveSessions);
+authRouter.delete("/sessions/:sessionId", userAuth, removeSession);
+authRouter.delete("/sessions", userAuth, removeAllSessions);
+authRouter.get("/sessions/stats", userAuth, getSessionStats);
+authRouter.post("/sessions/activity", userAuth, updateSessionActivity);
 
 // ==================== OAUTH ROUTES ====================
 

@@ -6,6 +6,13 @@
 - POST /logout
 - POST /refresh - Refresh access token using refresh token
 
+### Session Management
+- GET /sessions - Get all active sessions
+- DELETE /sessions/:sessionId - Remove specific session
+- DELETE /sessions - Remove all sessions (logout everywhere)
+- GET /sessions/stats - Get session statistics
+- POST /sessions/activity - Update session activity
+
 ## profileRouter
 - GET /profile/view
 - PATCH /profile/edit
