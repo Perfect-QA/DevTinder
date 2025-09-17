@@ -84,8 +84,12 @@ const login = async (req: Request, res: Response): Promise<void> => {
     // Save updated user information
     await user.save();
     
-    // Generate JWT token
+    // Generate JWT token and refresh token
     const token = user.getJWT();
+    const refreshToken = user.generateRefreshToken();
+    
+    // Save user with refresh token
+    await user.save();
     
     // Set JWT token as HTTP-only cookie using COOKIE_EXPIRY from environment
     res.cookie('token', token, {
@@ -93,6 +97,14 @@ const login = async (req: Request, res: Response): Promise<void> => {
       secure: process.env.NODE_ENV === 'production',
       sameSite: 'strict',
       maxAge: parseInt(process.env.COOKIE_EXPIRY!)
+    });
+    
+    // Set refresh token as HTTP-only cookie (7 days)
+    res.cookie('refreshToken', refreshToken, {
+      httpOnly: true,
+      secure: process.env.NODE_ENV === 'production',
+      sameSite: 'strict',
+      maxAge: 7 * 24 * 60 * 60 * 1000 // 7 days
     });
     
     // Log successful login

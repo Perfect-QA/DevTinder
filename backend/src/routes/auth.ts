@@ -7,6 +7,7 @@ const authRouter = express.Router();
 import { signup } from '../controllers/auth/signupController';
 import { login } from '../controllers/auth/loginController';
 import { logout } from '../controllers/auth/logoutController';
+import { refreshToken } from '../controllers/auth/refreshTokenController';
 import { getDashboard, getUserInfo } from '../controllers/auth/dashboardController';
 import { 
   googleAuth, 
@@ -41,8 +42,8 @@ authRouter.get("/dashboard", userAuth, getDashboard);
 authRouter.get("/user", userAuth, getUserInfo);
 authRouter.get("/user-info", userAuth, getUserInfo); // Alias for user-info
 
-// Refresh token route (placeholder - needs implementation)
-// authRouter.post("/refresh", refreshToken);
+// Refresh token route
+authRouter.post("/refresh", refreshToken);
 
 // ==================== OAUTH ROUTES ====================
 

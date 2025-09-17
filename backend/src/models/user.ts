@@ -46,6 +46,9 @@ export interface IUser extends Document {
     loginCount: number;
     resetPasswordToken?: string;
     resetPasswordExpiry?: Date;
+    // JWT refresh token
+    refreshToken?: string;
+    refreshTokenExpiry?: Date;
     // OAuth fields
     googleId?: string;
     githubId?: string;
@@ -82,6 +85,8 @@ export interface IUser extends Document {
     validatePassword(passwordInputByUser: string): Promise<boolean>;
     isAccountLocked(): boolean;
     getLockTimeRemaining(): number;
+    generateRefreshToken(): string;
+    validateRefreshToken(token: string): boolean;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -157,6 +162,13 @@ const userSchema = new Schema<IUser>({
         type: String
     },
     resetPasswordExpiry: {
+        type: Date
+    },
+    // JWT refresh token
+    refreshToken: {
+        type: String
+    },
+    refreshTokenExpiry: {
         type: Date
     },
     // OAuth fields
@@ -271,6 +283,44 @@ userSchema.methods.getLockTimeRemaining = function(): number {
     const user = this as IUser;
     if (!user.isLocked || !user.lockUntil) return 0;
     return Math.ceil((user.lockUntil.getTime() - new Date().getTime()) / (1000 * 60)); // minutes
+}
+
+userSchema.methods.generateRefreshToken = function(): string {
+    const user = this as IUser;
+    const refreshTokenSecret = process.env.JWT_REFRESH_SECRET;
+    if (!refreshTokenSecret) {
+        throw new Error('JWT_REFRESH_SECRET is not configured');
+    }
+    
+    const refreshToken = jwt.sign(
+        { userId: user._id, type: 'refresh' }, 
+        refreshTokenSecret, 
+        { expiresIn: '7d' } as jwt.SignOptions
+    );
+    
+    // Store refresh token in user document
+    user.refreshToken = refreshToken;
+    user.refreshTokenExpiry = new Date(Date.now() + 7 * 24 * 60 * 60 * 1000); // 7 days
+    
+    return refreshToken;
+}
+
+userSchema.methods.validateRefreshToken = function(token: string): boolean {
+    const user = this as IUser;
+    const refreshTokenSecret = process.env.JWT_REFRESH_SECRET;
+    if (!refreshTokenSecret) {
+        return false;
+    }
+    
+    try {
+        const decoded = jwt.verify(token, refreshTokenSecret) as any;
+        return decoded.userId === (user._id as any).toString() && 
+               decoded.type === 'refresh' && 
+               user.refreshToken === token &&
+               !!(user.refreshTokenExpiry && user.refreshTokenExpiry > new Date());
+    } catch (error) {
+        return false;
+    }
 }
 
 export default mongoose.model<IUser>("User", userSchema);
