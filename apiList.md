@@ -4,6 +4,7 @@
 - POST /signup
 - POST /login
 - POST /logout
+- POST /refresh - Refresh access token using refresh token
 
 ## profileRouter
 - GET /profile/view
