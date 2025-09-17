@@ -1,4 +1,5 @@
 import { validateLoginData } from "../../utils/loginValidation";
+import { validatePassword, getPasswordStrength } from "../../utils/passwordValidation";
 import User from "../../models/user";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";

@@ -1,4 +1,5 @@
 import { validateSignUpData } from "../../utils/signUpValidation";
+import { validatePassword, getPasswordStrength } from "../../utils/passwordValidation";
 import User, { IUser } from "../../models/user";
 import bcrypt from "bcrypt";
 import * as jwt from "jsonwebtoken";
@@ -30,6 +31,17 @@ const signup = async (req: Request, res: Response): Promise<void> => {
     // validating the data
     validateSignUpData(req);
     const { firstName, lastName, emailId, password } = req.body;
+    
+    // Validate password strength with modern requirements
+    const passwordValidation = validatePassword(password);
+    if (!passwordValidation.isValid) {
+      sendErrorResponse(res, 400, `Password requirements not met: ${passwordValidation.errors.join(', ')}`);
+      return;
+    }
+    
+    // Log password strength for security monitoring
+    const passwordStrength = getPasswordStrength(passwordValidation.score);
+    console.log(`Password strength for ${emailId}: ${passwordStrength} (${passwordValidation.score}/100)`);
     
     // Hash the password
     const saltRounds = process.env.PASSWORD_SALT_ROUNDS ? parseInt(process.env.PASSWORD_SALT_ROUNDS) : 10;
