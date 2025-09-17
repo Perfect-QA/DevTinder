@@ -80,6 +80,8 @@ export interface IUser extends Document {
     // Methods
     getJWT(): string;
     validatePassword(passwordInputByUser: string): Promise<boolean>;
+    isAccountLocked(): boolean;
+    getLockTimeRemaining(): number;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -258,6 +260,17 @@ userSchema.methods.validatePassword = async function(passwordInputByUser: string
     const passwordHash = user.password;
     const isPasswordValid = await bcrypt.compare(passwordInputByUser, passwordHash);
     return isPasswordValid;
+}
+
+userSchema.methods.isAccountLocked = function(): boolean {
+    const user = this as IUser;
+    return !!(user.isLocked && user.lockUntil && user.lockUntil > new Date());
+}
+
+userSchema.methods.getLockTimeRemaining = function(): number {
+    const user = this as IUser;
+    if (!user.isLocked || !user.lockUntil) return 0;
+    return Math.ceil((user.lockUntil.getTime() - new Date().getTime()) / (1000 * 60)); // minutes
 }
 
 export default mongoose.model<IUser>("User", userSchema);

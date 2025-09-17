@@ -35,12 +35,19 @@ const signup = async (req: Request, res: Response): Promise<void> => {
     const saltRounds = process.env.PASSWORD_SALT_ROUNDS ? parseInt(process.env.PASSWORD_SALT_ROUNDS) : 10;
     const hashedPassword = await bcrypt.hash(password, saltRounds);
     
-    // Create user with hashed password
+    // Create user with hashed password and initialize tracking fields
     const user = new User({ 
       firstName, 
       lastName, 
       emailId, 
-      password: hashedPassword 
+      password: hashedPassword,
+      // Initialize login tracking fields
+      failedLoginAttempts: 0,
+      isLocked: false,
+      loginCount: 0,
+      provider: 'local',
+      isEmailVerified: false,
+      twoFactorEnabled: false
     });
     
     // Save user to database
@@ -98,7 +105,19 @@ const signup = async (req: Request, res: Response): Promise<void> => {
         id: user._id,
         firstName: user.firstName,
         lastName: user.lastName,
-        emailId: user.emailId
+        emailId: user.emailId,
+        age: user.age,
+        gender: user.gender,
+        photoUrl: user.photoUrl,
+        about: user.about,
+        provider: user.provider,
+        isEmailVerified: user.isEmailVerified,
+        twoFactorEnabled: user.twoFactorEnabled,
+        loginCount: user.loginCount,
+        failedLoginAttempts: user.failedLoginAttempts,
+        isLocked: user.isLocked,
+        createdAt: user.createdAt,
+        updatedAt: user.updatedAt
       }
     });
     

@@ -1,4 +1,4 @@
-# DevTinder APIs
+# perfect APIs
 
 ## authRouter
 - POST /signup
@@ -19,7 +19,3 @@
 - GET /user/connections
 - GET /user/feed - Gets you the profiles of other users on platform
 
-
-Status: ignored, interested, accepeted, rejected
-
-$ cd frontend; npm start
