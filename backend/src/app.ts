@@ -26,6 +26,9 @@ validateEnvironment();
 
 const app: express.Application = express();
 
+// Trust proxy for rate limiting and IP detection
+app.set('trust proxy', 1);
+
 // In-Memory File Storage
 const fileCache = new Map<string, FileCacheData>();
 console.log("💾 Memory-based file storage initialized");

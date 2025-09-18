@@ -41,13 +41,6 @@ const login = async (req: Request, res: Response): Promise<void> => {
       return;
     }
     
-    // Check if account is locked
-    if (user.isAccountLocked()) {
-      const lockTimeRemaining = user.getLockTimeRemaining();
-      sendErrorResponse(res, 423, `Account is locked due to too many failed attempts. Try again in ${lockTimeRemaining} minutes.`);
-      return;
-    }
-    
     // If lock has expired, reset the lock
     if (user.isLocked && user.lockUntil && user.lockUntil <= new Date()) {
       user.isLocked = false;
@@ -56,9 +49,17 @@ const login = async (req: Request, res: Response): Promise<void> => {
       await user.save();
     }
     
-    // Validate password
+    // Validate password FIRST
     const isPasswordValid = await user.validatePassword(password);
+    
     if (!isPasswordValid) {
+      // Check if account is locked (only for wrong password)
+      if (user.isAccountLocked()) {
+        const lockTimeRemaining = user.getLockTimeRemaining();
+        sendErrorResponse(res, 423, `Account is locked due to too many failed attempts. Try again in ${lockTimeRemaining} minutes.`);
+        return;
+      }
+      
       // Increment failed login attempts
       user.failedLoginAttempts += 1;
       
@@ -72,6 +73,11 @@ const login = async (req: Request, res: Response): Promise<void> => {
       await user.save();
       sendErrorResponse(res, 401, "Invalid email or password");
       return;
+    }
+    
+    // If password is correct, unlock the account immediately (even if it was locked)
+    if (user.isLocked) {
+      console.log(`Account unlocked for user: ${user.emailId} due to correct password`);
     }
     
     // Reset failed login attempts on successful login
