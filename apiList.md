@@ -12,6 +12,12 @@
 - DELETE /sessions - Remove all sessions (logout everywhere)
 - GET /sessions/stats - Get session statistics
 - POST /sessions/activity - Update session activity
+- POST /sessions/cleanup - Clean up expired sessions for current user
+
+### Session Cleanup (Admin)
+- POST /cleanup/trigger - Manually trigger session cleanup
+- GET /cleanup/stats - Get cleanup service statistics
+- GET /cleanup/session-stats - Get global session statistics
 
 ## profileRouter
 - GET /profile/view

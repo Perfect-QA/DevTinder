@@ -10,6 +10,7 @@ import { logout } from '../controllers/auth/logoutController';
 import { refreshToken } from '../controllers/auth/refreshTokenController';
 import { getActiveSessions, removeSession, removeAllSessions, getSessionStats, updateSessionActivity } from '../controllers/auth/sessionController';
 import { getDashboard, getUserInfo } from '../controllers/auth/dashboardController';
+import { triggerCleanup, getCleanupStats, getSessionStats as getGlobalSessionStats, cleanupUserSessions } from '../controllers/auth/cleanupController';
 import { 
   googleAuth, 
   googleCallback, 
@@ -52,6 +53,12 @@ authRouter.delete("/sessions/:sessionId", userAuth, removeSession);
 authRouter.delete("/sessions", userAuth, removeAllSessions);
 authRouter.get("/sessions/stats", userAuth, getSessionStats);
 authRouter.post("/sessions/activity", userAuth, updateSessionActivity);
+
+// Session cleanup routes
+authRouter.post("/sessions/cleanup", userAuth, cleanupUserSessions);
+authRouter.post("/cleanup/trigger", userAuth, triggerCleanup);
+authRouter.get("/cleanup/stats", userAuth, getCleanupStats);
+authRouter.get("/cleanup/session-stats", userAuth, getGlobalSessionStats);
 
 // ==================== OAUTH ROUTES ====================
 

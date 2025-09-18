@@ -2,6 +2,7 @@ import mongoose, { Document, Schema } from "mongoose";
 import validator from "validator";
 import bcrypt from "bcrypt";
 import * as jwt from 'jsonwebtoken';
+import { getSessionExpiryDate } from '../utils/sessionUtils';
 
 // DRY: Common field validation functions
 const validateEmail = (value: string): void => {
@@ -106,6 +107,7 @@ export interface IUser extends Document {
     getActiveSessions(): any[];
     getSessionById(sessionId: string): any;
     removeAllSessions(): void;
+    cleanupExpiredSessions(): number;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -430,7 +432,13 @@ userSchema.methods.updateSessionActivity = function(sessionId: string): void {
 
 userSchema.methods.getActiveSessions = function(): any[] {
     const user = this as IUser;
-    return user.activeSessions.filter(session => session.isActive);
+    const expiryDate = getSessionExpiryDate();
+    
+    // Filter out expired sessions and inactive sessions
+    return user.activeSessions.filter(session => {
+        const sessionDate = new Date(session.lastActivity);
+        return session.isActive && sessionDate > expiryDate;
+    });
 }
 
 userSchema.methods.getSessionById = function(sessionId: string): any {
@@ -441,6 +449,27 @@ userSchema.methods.getSessionById = function(sessionId: string): any {
 userSchema.methods.removeAllSessions = function(): void {
     const user = this as IUser;
     user.activeSessions = [];
+}
+
+userSchema.methods.cleanupExpiredSessions = function(): number {
+    const user = this as IUser;
+    const expiryDate = getSessionExpiryDate();
+    
+    const initialCount = user.activeSessions.length;
+    
+    // Remove expired sessions
+    user.activeSessions = user.activeSessions.filter(session => {
+        const sessionDate = new Date(session.lastActivity);
+        return sessionDate > expiryDate;
+    });
+    
+    const removedCount = initialCount - user.activeSessions.length;
+    
+    if (removedCount > 0) {
+        console.log(`🧹 Cleaned up ${removedCount} expired sessions for user ${user.emailId}`);
+    }
+    
+    return removedCount;
 }
 
 // Helper method to detect device type

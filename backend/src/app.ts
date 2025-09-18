@@ -1,6 +1,7 @@
 import express, { Request, Response, NextFunction } from "express";
 import { connectDB } from "./config/database";
 import { validateEnvironment } from "./config/envValidator";
+import sessionCleanupService from "./services/sessionCleanupService";
 import User from "./models/user";
 import cookieParser from 'cookie-parser';
 import cors from "cors";
@@ -344,8 +345,13 @@ app.get("/health", (req: Request, res: Response): void => {
 connectDB()
   .then(() => {
     console.log("Database connected successfully");
+    
+    // Start session cleanup cron job
+    sessionCleanupService.startCronJob();
+    
     app.listen(process.env.PORT, () => {
       console.log("Server is running on port " + process.env.PORT);
+      console.log("🧹 Session cleanup service started");
     });
   })
   .catch((error) => {
