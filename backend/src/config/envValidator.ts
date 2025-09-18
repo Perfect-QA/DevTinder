@@ -30,7 +30,7 @@ const requiredEnvVars: RequiredEnvVars = {
   
   // Database Configuration (using your actual env variables)
   MONGO_URL: {
-    required: false,
+    required: true,
     description: 'Primary MongoDB connection string (cloud/production)'
   },
   DB_URL: {
@@ -153,7 +153,7 @@ export const validateEnvironment = (): void => {
   const missing: string[] = [];
   const warnings: string[] = [];
   
-  console.log('🔍 Validating environment variables...\n');
+  // console.log('🔍 Validating environment variables...\n');
   
   // Check required variables
   for (const [key, config] of Object.entries(requiredEnvVars)) {
@@ -166,7 +166,7 @@ export const validateEnvironment = (): void => {
       process.env[key] = config.defaultValue;
       console.log(`⚠️  ${key}: Using default value (${config.defaultValue})`);
     } else if (value) {
-      console.log(`✅ ${key}: Set`);
+      // console.log(`✅ ${key}: Set`);
       
       // Additional validation for specific variables
       if (key === 'JWT_SECRET' || key === 'JWT_REFRESH_SECRET' || key === 'SESSION_SECRET') {

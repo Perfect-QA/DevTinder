@@ -474,6 +474,10 @@ userSchema.methods.cleanupExpiredSessions = function(): number {
 
 // Helper method to detect device type
 userSchema.methods.detectDeviceType = function(userAgent: string): 'desktop' | 'mobile' | 'tablet' | 'unknown' {
+    if (!userAgent || userAgent === 'Unknown') {
+        return 'unknown';
+    }
+    
     const ua = userAgent.toLowerCase();
     
     // Check for mobile devices first
@@ -484,12 +488,13 @@ userSchema.methods.detectDeviceType = function(userAgent: string): 'desktop' | '
     else if (ua.includes('tablet') || ua.includes('ipad') || (ua.includes('android') && !ua.includes('mobile'))) {
         return 'tablet';
     } 
-    // Check for desktop operating systems
-    else if (ua.includes('windows') || ua.includes('macintosh') || ua.includes('mac os') || ua.includes('linux') || ua.includes('x11')) {
+    // Check for desktop operating systems (more comprehensive)
+    else if (ua.includes('windows') || ua.includes('macintosh') || ua.includes('mac os') || ua.includes('linux') || ua.includes('x11') || ua.includes('win32') || ua.includes('win64')) {
         return 'desktop';
     }
     
-    return 'unknown';
+    // Default to desktop for most cases (browsers typically run on desktop)
+    return 'desktop';
 }
 
 export default mongoose.model<IUser>("User", userSchema);

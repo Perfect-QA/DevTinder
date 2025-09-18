@@ -396,14 +396,14 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
                       <DocumentIcon className="w-4 h-4 text-blue-400 flex-shrink-0" />
                       <button
                         onClick={() => openFile(file)}
-                        className="text-gray-300 hover:text-teal-400 transition-colors truncate max-w-32 text-left"
+                        className="text-gray-300 hover:text-teal-400 transition-colors truncate max-w-32 text-left cursor-pointer"
                         title={`Click to view: ${file.originalName}`}
                       >
                         {file.originalName}
                       </button>
                       <button
                         onClick={() => removeFile(file.id)}
-                        className="text-gray-400 hover:text-red-400 transition-colors ml-1 flex-shrink-0"
+                        className="text-gray-400 hover:text-red-400 transition-colors ml-1 flex-shrink-0 cursor-pointer"
                         title="Remove file"
                       >
                         <XMarkIcon className="w-3 h-3" />
@@ -415,7 +415,7 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
             )}
           </div>
 
-          <button className="w-full bg-teal-500 hover:bg-teal-600 text-white font-medium py-3 px-6 rounded-lg transition-colors">
+          <button className="w-full bg-teal-500 hover:bg-teal-600 text-white font-medium py-3 px-6 rounded-lg transition-colors cursor-pointer">
             Process Data
           </button>
         </div>
@@ -447,7 +447,7 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
               <div className="relative" ref={dropdownRef}>
                 <button 
                   onClick={() => setShowExportDropdown(!showExportDropdown)}
-                  className="flex items-center space-x-2 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-600 transition-colors"
+                  className="flex items-center space-x-2 px-4 py-2 bg-gray-700 border border-gray-600 rounded-lg text-gray-300 hover:bg-gray-600 transition-colors cursor-pointer"
                 >
                   <span>Export</span>
                   <ChevronDownIcon className="w-4 h-4" />
@@ -457,20 +457,20 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
                   <div className="absolute right-0 mt-2 w-48 bg-gray-800 border border-gray-700 rounded-lg shadow-lg z-10">
                     <button
                       onClick={exportAsCSV}
-                      className="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-700 transition-colors first:rounded-t-lg"
+                      className="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-700 transition-colors first:rounded-t-lg cursor-pointer"
                     >
                       Export as CSV
                     </button>
                     <button
                       onClick={exportAsJSON}
-                      className="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-700 transition-colors last:rounded-b-lg"
+                      className="w-full px-4 py-2 text-left text-gray-300 hover:bg-gray-700 transition-colors last:rounded-b-lg cursor-pointer"
                     >
                       Export as JSON
                     </button>
                   </div>
                 )}
               </div>
-              <button className="px-4 py-2 bg-teal-500/20 border border-teal-500 text-teal-400 rounded-lg hover:bg-teal-500/30 transition-colors">
+              <button className="px-4 py-2 bg-teal-500/20 border border-teal-500 text-teal-400 rounded-lg hover:bg-teal-500/30 transition-colors cursor-pointer">
                 Push Selected to Xray ({selectedTests.size})
               </button>
             </div>
@@ -541,10 +541,10 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
                   </td>
                   <td className="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div className="flex items-center space-x-2">
-                      <button className="text-gray-400 hover:text-white transition-colors">
+                      <button className="text-gray-400 hover:text-white transition-colors cursor-pointer">
                         <PencilIcon className="w-4 h-4" />
                       </button>
-                      <button className="px-3 py-1 bg-teal-500/20 border border-teal-500 text-teal-400 rounded text-xs hover:bg-teal-500/30 transition-colors">
+                      <button className="px-3 py-1 bg-teal-500/20 border border-teal-500 text-teal-400 rounded text-xs hover:bg-teal-500/30 transition-colors cursor-pointer">
                         Push to Xray
                       </button>
                     </div>
@@ -566,7 +566,7 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
               </h3>
               <button
                 onClick={closePreview}
-                className="text-gray-400 hover:text-white transition-colors"
+                className="text-gray-400 hover:text-white transition-colors cursor-pointer"
               >
                 <XMarkIcon className="w-6 h-6" />
               </button>
@@ -615,7 +615,7 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
                     <p>Failed to load image preview</p>
                     <button
                       onClick={() => window.open(`http://localhost:5000${selectedFile.url}`, '_blank')}
-                      className="mt-2 px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors"
+                      className="mt-2 px-4 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors cursor-pointer"
                     >
                       Open in New Tab
                     </button>
@@ -639,7 +639,7 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
                       link.click();
                       document.body.removeChild(link);
                     }}
-                    className="px-6 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors"
+                    className="px-6 py-2 bg-teal-500 text-white rounded-lg hover:bg-teal-600 transition-colors cursor-pointer"
                   >
                     Download File
                   </button>

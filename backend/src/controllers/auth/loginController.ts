@@ -63,10 +63,13 @@ const login = async (req: Request, res: Response): Promise<void> => {
       // Increment failed login attempts
       user.failedLoginAttempts += 1;
       
-      // Lock account after 5 failed attempts
-      if (user.failedLoginAttempts >= 5) {
+      // Lock account after max failed attempts
+      const maxAttempts = Number(process.env.MAX_FAILED_LOGIN_ATTEMPTS);
+      const lockoutDurationMs = Number(process.env.ACCOUNT_LOCKOUT_DURATION_MINUTES) * 60 * 1000;
+      
+      if (user.failedLoginAttempts >= maxAttempts) {
         user.isLocked = true;
-        user.lockUntil = new Date(Date.now() + 15 * 60 * 1000); // Lock for 15 minutes
+        user.lockUntil = new Date(Date.now() + lockoutDurationMs);
         console.log(`Account locked for user: ${user.emailId} due to ${user.failedLoginAttempts} failed attempts`);
       }
       
@@ -88,13 +91,13 @@ const login = async (req: Request, res: Response): Promise<void> => {
     // Update login tracking information
     user.loginCount += 1;
     user.lastLogin = new Date();
-    user.loginIP = req.ip || req.connection.remoteAddress || 'unknown';
+    user.loginIP = req.ip || req.socket.remoteAddress || 'unknown';
     
     // Create new session
     const sessionId = generateSessionId();
     const deviceId = req.headers['x-device-id'] as string || crypto.randomBytes(16).toString('hex');
     const userAgent = req.headers['user-agent'] || 'Unknown';
-    const ipAddress = req.ip || req.connection.remoteAddress || 'unknown';
+    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
     
     // Generate better device name from user agent
     const deviceName = generateDeviceName(userAgent, req.headers['x-device-name'] as string);
@@ -169,29 +172,34 @@ const generateDeviceName = (userAgent: string, customDeviceName?: string): strin
     return customDeviceName;
   }
   
+  if (!userAgent || userAgent === 'Unknown') {
+    return 'Unknown Device';
+  }
+  
   const ua = userAgent.toLowerCase();
   
-  // Detect browser
+  // Detect browser with more comprehensive patterns
   let browser = 'Unknown Browser';
-  if (ua.includes('chrome')) browser = 'Chrome';
-  else if (ua.includes('firefox')) browser = 'Firefox';
-  else if (ua.includes('safari')) browser = 'Safari';
-  else if (ua.includes('edge')) browser = 'Edge';
-  else if (ua.includes('opera')) browser = 'Opera';
+  if (ua.includes('edg/') || ua.includes('edge/')) browser = 'Edge';
+  else if (ua.includes('chrome/') && !ua.includes('edg/') && !ua.includes('edge/')) browser = 'Chrome';
+  else if (ua.includes('firefox/')) browser = 'Firefox';
+  else if (ua.includes('safari/') && !ua.includes('chrome/') && !ua.includes('edg/')) browser = 'Safari';
+  else if (ua.includes('opera/') || ua.includes('opr/')) browser = 'Opera';
+  else if (ua.includes('msie') || ua.includes('trident/')) browser = 'Internet Explorer';
   
-  // Detect operating system
+  // Detect operating system with more patterns
   let os = 'Unknown OS';
-  if (ua.includes('windows')) os = 'Windows';
-  else if (ua.includes('macintosh') || ua.includes('mac os')) os = 'macOS';
-  else if (ua.includes('linux')) os = 'Linux';
+  if (ua.includes('windows nt') || ua.includes('windows 10') || ua.includes('windows 11')) os = 'Windows';
+  else if (ua.includes('macintosh') || ua.includes('mac os x') || ua.includes('macos')) os = 'macOS';
+  else if (ua.includes('linux') || ua.includes('ubuntu') || ua.includes('debian')) os = 'Linux';
   else if (ua.includes('android')) os = 'Android';
   else if (ua.includes('iphone') || ua.includes('ipad')) os = 'iOS';
+  else if (ua.includes('x11') || ua.includes('unix')) os = 'Unix';
   
   // Detect device type
-  let deviceType = '';
-  if (ua.includes('mobile')) deviceType = 'Mobile';
+  let deviceType = 'Desktop';
+  if (ua.includes('mobile') || ua.includes('android') || ua.includes('iphone') || ua.includes('blackberry')) deviceType = 'Mobile';
   else if (ua.includes('tablet') || ua.includes('ipad')) deviceType = 'Tablet';
-  else deviceType = 'Desktop';
   
   return `${browser} on ${os} ${deviceType}`;
 };
