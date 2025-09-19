@@ -133,6 +133,22 @@ const requiredEnvVars: RequiredEnvVars = {
     description: 'Comma-separated list of allowed CORS origins',
   },
   
+  // OpenAI Configuration
+  OPENAI_API_KEY: {
+    required: true,
+    description: 'OpenAI API key for test case generation'
+  },
+  OPENAI_MODEL: {
+    required: false,
+    description: 'OpenAI model to use for generation',
+    defaultValue: 'gpt-4'
+  },
+  OPENAI_MAX_TOKENS: {
+    required: false,
+    description: 'Maximum tokens for OpenAI responses',
+    defaultValue: '4000'
+  },
+  
   // Development Configuration
   DEBUG: {
     required: false,

@@ -12,6 +12,7 @@ import { apiLimiter } from "./middlewares/rateLimiting";
 import authRouter from "./routes/auth";
 import profileRouter from "./routes/profile";
 import userRouter from "./routes/user";
+import testGenerationRouter from "./routes/testGeneration";
 import multer from "multer";
 import path from "path";
 import { 
@@ -21,6 +22,7 @@ import {
   CacheStatsResponse,
   AuthenticatedRequest 
 } from "./types";
+import openaiService from "./services/openaiService";
 
 // Validate environment variables before starting the app
 validateEnvironment();
@@ -113,6 +115,7 @@ app.use(passport.session());
 app.use("/auth", authRouter);
 app.use("/", profileRouter);
 app.use("/", userRouter);
+app.use("/api/test-generation", testGenerationRouter);
 
 app.get("/feed", userAuth, async (req: any, res: Response): Promise<void> => {
   try {
@@ -123,8 +126,8 @@ app.get("/feed", userAuth, async (req: any, res: Response): Promise<void> => {
   }
 });
 
-// Upload endpoint - Store in memory
-app.post("/upload", upload.array("files", 10), (req: Request, res: Response): void => {
+// Upload endpoint - Store in memory and extract content
+app.post("/upload", upload.array("files", 10), async (req: Request, res: Response): Promise<void> => {
   try {
     console.log("📤 Upload request received");
 
@@ -133,7 +136,10 @@ app.post("/upload", upload.array("files", 10), (req: Request, res: Response): vo
       return;
     }
 
-    const fileInfos: UploadedFile[] = (req.files as Express.Multer.File[]).map((file: Express.Multer.File) => {
+    const fileInfos: UploadedFile[] = [];
+    
+    // Process files sequentially to extract content
+    for (const file of req.files as Express.Multer.File[]) {
       const ext = path.extname(file.originalname).toLowerCase().slice(1);
       const isImage = imageTypes.test(ext);
 
@@ -153,7 +159,23 @@ app.post("/upload", upload.array("files", 10), (req: Request, res: Response): vo
 
       console.log(`💾 File cached in memory: ${filename} (${file.size} bytes)`);
 
-      return {
+      // Extract text content for test generation
+      let extractedContent = '';
+      try {
+        if (!isImage) {
+          extractedContent = await openaiService.extractTextFromFile(
+            file.buffer, 
+            file.originalname, 
+            file.mimetype
+          );
+          console.log(`📝 Content extracted from ${file.originalname}: ${extractedContent.length} characters`);
+        }
+      } catch (contentError) {
+        console.warn(`⚠️ Failed to extract content from ${file.originalname}:`, contentError);
+        extractedContent = `[Content extraction failed for ${file.originalname}]`;
+      }
+
+      const fileInfo: UploadedFile = {
         id: filename.split('.')[0],
         filename: filename,
         originalName: file.originalname,
@@ -161,9 +183,12 @@ app.post("/upload", upload.array("files", 10), (req: Request, res: Response): vo
         type: isImage ? 'image' : 'file',
         mimetype: file.mimetype,
         url: `/file/${filename}`,
-        uploadedAt: new Date().toISOString()
+        uploadedAt: new Date().toISOString(),
+        extractedContent: extractedContent // Add extracted content to file info
       };
-    });
+
+      fileInfos.push(fileInfo);
+    }
 
     console.log(`🎉 ${req.files.length} file(s) cached in memory`);
     console.log(`📊 Cache size: ${fileCache.size} files`);

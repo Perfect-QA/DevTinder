@@ -61,12 +61,8 @@ const Sidebar: React.FC<SidebarProps> = () => {
     <div className="w-64 bg-gray-800 border-r border-gray-700 flex flex-col">
       {/* Logo and Theme Toggle */}
       <div className="p-6 border-b border-gray-700 flex items-center justify-between">
-        <div className="flex items-center space-x-2">
-          <div className="w-8 h-8 bg-teal-500 rounded-full flex items-center justify-center">
-            <span className="text-white font-bold text-lg">O</span>
-          </div>
-          <span className="text-2xl font-bold text-teal-400">OZAR</span>
-        </div>
+        <img src="/perfectcase_logo.svg" alt="logo" className='h-12 w-auto'/>
+        {/* <div className="text-white font-bold text-xl">PerfectAI</div> */}
         <button className="p-2 text-gray-400 hover:text-white transition-colors">
           <SunIcon className="w-5 h-5" />
         </button>

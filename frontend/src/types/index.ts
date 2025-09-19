@@ -8,6 +8,7 @@ export interface UploadedFile {
   mimetype: string;
   url: string;
   uploadedAt: string;
+  extractedContent?: string;
 }
 
 // Test case types
@@ -89,3 +90,21 @@ export type FileOpenHandler = (file: UploadedFile) => void;
 export type DragEventHandler = (event: React.DragEvent<HTMLDivElement>) => void;
 export type TestSelectionHandler = (testId: number) => void;
 export type ExportHandler = () => void;
+
+// Test generation types
+export interface TestGenerationRequest {
+  prompt: string;
+  fileIds?: string[];
+  count?: number;
+  offset?: number;
+  requestId?: string;
+}
+
+export interface TestGenerationResponse {
+  success: boolean;
+  testCases: TestCase[];
+  totalGenerated: number;
+  hasMore: boolean;
+  message?: string;
+  error?: string;
+}

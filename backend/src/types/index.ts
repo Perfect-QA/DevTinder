@@ -12,6 +12,7 @@ export interface UploadedFile {
   mimetype: string;
   url: string;
   uploadedAt: string;
+  extractedContent?: string;
 }
 
 export interface FileCacheData {
@@ -159,7 +160,39 @@ export interface EnvironmentVariables {
   // Security Configuration
   CORS_ORIGINS?: string;
   
+  // OpenAI Configuration
+  OPENAI_API_KEY?: string;
+  OPENAI_MODEL?: string;
+  OPENAI_MAX_TOKENS?: string;
+  
   // Development Configuration
   DEBUG?: string;
   ENABLE_SWAGGER?: string;
+}
+
+// Test case types
+export interface TestCase {
+  id: number;
+  summary: string;
+  precondition: string;
+  steps: string;
+  expectedResult: string;
+  priority: 'P1' | 'P2' | 'P3';
+}
+
+export interface TestGenerationRequest {
+  prompt: string;
+  fileIds?: string[];
+  count?: number;
+  offset?: number;
+  requestId?: string;
+}
+
+export interface TestGenerationResponse {
+  success: boolean;
+  testCases: TestCase[];
+  totalGenerated: number;
+  hasMore: boolean;
+  message?: string;
+  error?: string;
 }

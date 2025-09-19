@@ -17,7 +17,9 @@ import {
   DragEventHandler, 
   TestSelectionHandler, 
   ExportHandler,
-  UploadResponse 
+  UploadResponse,
+  TestGenerationRequest,
+  TestGenerationResponse
 } from '../types';
 
 const UploadTestData: React.FC<UploadTestDataProps> = () => {
@@ -30,6 +32,14 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
   const [selectedFile, setSelectedFile] = useState<UploadedFile | null>(null);
   const [showPreview, setShowPreview] = useState<boolean>(false);
   const [isDragOver, setIsDragOver] = useState<boolean>(false);
+  
+  // Test generation state
+  const [generatedTestCases, setGeneratedTestCases] = useState<TestCase[]>([]);
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
+  const [generationError, setGenerationError] = useState<string | null>(null);
+  const [totalGenerated, setTotalGenerated] = useState<number>(0);
+  const [hasMoreTests, setHasMoreTests] = useState<boolean>(false);
+  const [currentOffset, setCurrentOffset] = useState<number>(0);
   
   const dropdownRef = useRef<HTMLDivElement>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -48,48 +58,8 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
     };
   }, []);
 
-  const testCases: TestCase[] = [
-    {
-      id: 1,
-      summary: 'Verify successful login with correct OTP within validity period',
-      precondition: 'User is on the login page and has initiated login using a valid phone number/email that triggers OTP generation.',
-      steps: '1. Enter the registered phone number/email on the login page and click on \'Send OTP\'. 2. Receive the OTP via SMS/email. 3. Enter the received OTP in the OTP input field. 4. Click on \'Verify OTP\' button.',
-      expectedResult: 'User is successfully logged in and redirected to the homepage/dashboard.',
-      priority: 'P1'
-    },
-    {
-      id: 2,
-      summary: 'Verify error message for incorrect OTP entry',
-      precondition: 'User is on the login page and has received an OTP.',
-      steps: '1. Enter the registered phone number/email on the login page and click on \'Send OTP\'. 2. Receive the OTP sent to user. 3. Enter an incorrect OTP in the OTP input field. 4. Click on \'Verify OTP\' button.',
-      expectedResult: 'Appropriate error message is displayed and user remains on the OTP verification screen.',
-      priority: 'P1'
-    },
-    {
-      id: 3,
-      summary: 'Verify login fails when OTP is entered after expiry',
-      precondition: 'User is on the login page and the OTP validity period is known.',
-      steps: '1. Request OTP for login. 2. Wait until the OTP validity period expires. 3. Enter the expired OTP in the OTP input field. 4. Click on \'Verify OTP\' button.',
-      expectedResult: 'System displays OTP expired message and prevents login.',
-      priority: 'P1'
-    },
-    {
-      id: 4,
-      summary: 'Verify user cannot login with OTP from different session',
-      precondition: 'User has multiple active sessions or devices.',
-      steps: '1. Click \'Send OTP\' on device A. 2. Use the OTP received on device A to login on device B.',
-      expectedResult: 'Login should fail with appropriate error message.',
-      priority: 'P2'
-    },
-    {
-      id: 5,
-      summary: 'Verify OTP resend functionality works correctly',
-      precondition: 'User is on the OTP verification screen.',
-      steps: '1. Click on \'Resend OTP\' button. 2. Verify new OTP is received. 3. Enter the new OTP and verify login.',
-      expectedResult: 'New OTP is sent and user can login successfully.',
-      priority: 'P2'
-    }
-  ];
+  // Use generated test cases or fallback to empty array
+  const testCases = generatedTestCases.length > 0 ? generatedTestCases : [];
 
   const toggleTestSelection: TestSelectionHandler = (testId: number): void => {
     const newSelected = new Set(selectedTests);
@@ -300,6 +270,107 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
     }
   };
 
+  // Test generation function
+  const generateTestCases = async (isLoadMore: boolean = false): Promise<void> => {
+    if (!testData.trim()) {
+      setGenerationError('Please enter a prompt for test case generation');
+      return;
+    }
+
+    // Prevent multiple simultaneous requests
+    if (isGenerating) {
+      console.log('Generation already in progress, skipping request');
+      return;
+    }
+
+    setIsGenerating(true);
+    setGenerationError(null);
+
+    try {
+      // Generate unique request ID to prevent duplicates
+      const uniqueRequestId = `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+      
+      const request: TestGenerationRequest = {
+        prompt: testData.trim(),
+        fileIds: uploadedFiles.map(file => file.id),
+        count: isLoadMore ? 30 : 10,
+        offset: isLoadMore ? currentOffset : 0,
+        requestId: uniqueRequestId
+      };
+
+      console.log('Generating test cases...', request);
+
+      // Add timeout to prevent hanging requests
+      const controller = new AbortController();
+      const timeoutId = setTimeout(() => {
+        console.log('Request timed out, aborting...');
+        controller.abort();
+      }, 120000); // 2 minute timeout for OpenAI API calls
+
+      console.log('Making request to:', '/api/test-generation/generate');
+      const response = await fetch('/api/test-generation/generate', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request),
+        signal: controller.signal,
+      });
+
+      clearTimeout(timeoutId);
+      console.log('Response received:', response.status, response.statusText);
+
+      const result: TestGenerationResponse = await response.json();
+
+      if (!result.success) {
+        throw new Error(result.error || 'Failed to generate test cases');
+      }
+
+      if (isLoadMore) {
+        // Append new test cases to existing ones
+        setGeneratedTestCases(prev => [...prev, ...result.testCases]);
+        setCurrentOffset(prev => prev + result.testCases.length);
+      } else {
+        // Replace existing test cases
+        setGeneratedTestCases(result.testCases);
+        setCurrentOffset(result.testCases.length);
+        setSelectedTests(new Set()); // Clear selections
+      }
+
+      setTotalGenerated(result.totalGenerated);
+      setHasMoreTests(result.hasMore);
+
+      console.log(`✅ Generated ${result.testCases.length} test cases successfully`);
+
+    } catch (error) {
+      console.error('❌ Test generation failed:', error);
+      
+      let errorMessage = 'Failed to generate test cases';
+      if (error instanceof Error) {
+        if (error.name === 'AbortError') {
+          errorMessage = 'Request timed out. Please try again.';
+        } else {
+          errorMessage = error.message;
+        }
+      }
+      
+      setGenerationError(errorMessage);
+    } finally {
+      setIsGenerating(false);
+    }
+  };
+
+  // Load more test cases
+  const loadMoreTestCases = (): void => {
+    generateTestCases(true);
+  };
+
+  // Reset loading state (emergency function)
+  const resetLoadingState = (): void => {
+    setIsGenerating(false);
+    setGenerationError(null);
+  };
+
   return (
     <div className="space-y-6 px-8">
       {/* Test Data Input Section */}
@@ -415,9 +486,23 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
             )}
           </div>
 
-          <button className="w-full bg-teal-500 hover:bg-teal-600 text-white font-medium py-3 px-6 rounded-lg transition-colors cursor-pointer">
-            Process Data
+          <button 
+            onClick={() => generateTestCases(false)}
+            disabled={isGenerating}
+            className={`w-full font-medium py-3 px-6 rounded-lg transition-colors cursor-pointer ${
+              isGenerating 
+                ? 'bg-gray-600 text-gray-400 cursor-not-allowed' 
+                : 'bg-teal-500 hover:bg-teal-600 text-white'
+            }`}
+          >
+            {isGenerating ? 'Generating Test Cases...' : 'Process Data'}
           </button>
+          
+          {generationError && (
+            <div className="mt-4 p-4 bg-red-900/20 border border-red-500/50 rounded-lg">
+              <p className="text-red-400 text-sm">{generationError}</p>
+            </div>
+          )}
         </div>
       </div>
 
@@ -426,7 +511,11 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
         <div className="p-6 border-b border-gray-700">
           <div className="flex items-center justify-between">
             <h2 className="text-xl font-semibold text-white">
-              Generation Complete <span className="text-teal-400">10 tests</span>
+              {generatedTestCases.length > 0 ? (
+                <>Generation Complete <span className="text-teal-400">{totalGenerated} tests</span></>
+              ) : (
+                'Test Cases'
+              )}
             </h2>
             <div className="flex items-center space-x-4">
               <button className="p-2 text-gray-400 hover:text-white transition-colors">
@@ -554,6 +643,46 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
             </tbody>
           </table>
         </div>
+        
+        {/* Load More Button */}
+        {hasMoreTests && generatedTestCases.length > 0 && (
+          <div className="p-6 border-t border-gray-700">
+            <button
+              onClick={loadMoreTestCases}
+              disabled={isGenerating}
+              className={`w-full py-3 px-6 rounded-lg font-medium transition-colors ${
+                isGenerating
+                  ? 'bg-gray-600 text-gray-400 cursor-not-allowed'
+                  : 'bg-teal-500/20 border border-teal-500 text-teal-400 hover:bg-teal-500/30'
+              }`}
+            >
+              {isGenerating ? 'Loading More...' : 'Load More (30 more tests)'}
+            </button>
+            
+            {/* Emergency Reset Button */}
+            {isGenerating && (
+              <button
+                onClick={resetLoadingState}
+                className="mt-2 w-full py-2 px-4 rounded-lg font-medium bg-red-500/20 border border-red-500 text-red-400 hover:bg-red-500/30 transition-colors"
+              >
+                Reset Loading State
+              </button>
+            )}
+          </div>
+        )}
+        
+        {/* Empty State */}
+        {generatedTestCases.length === 0 && !isGenerating && (
+          <div className="p-12 text-center">
+            <div className="text-gray-400 mb-4">
+              <DocumentIcon className="w-16 h-16 mx-auto mb-4" />
+              <h3 className="text-lg font-medium text-gray-300 mb-2">No Test Cases Generated</h3>
+              <p className="text-gray-400">
+                Enter a prompt and click "Process Data" to generate test cases using AI.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* File Preview Modal */}
