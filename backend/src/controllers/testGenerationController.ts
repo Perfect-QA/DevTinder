@@ -49,6 +49,51 @@ const dailyTokenUsage = new Map<string, { date: string; tokens: number }>();
 // In-memory cache for request deduplication
 const requestCache = new Map<string, { timestamp: number; processing: boolean }>();
 
+// Helper function for request deduplication
+const handleRequestDeduplication = (requestId: string, res: Response): boolean => {
+  if (!requestId) return false;
+  
+  const now = Date.now();
+  const existingRequest = requestCache.get(requestId);
+  
+  if (existingRequest) {
+    if (existingRequest.processing) {
+      console.log(`⚠️ Duplicate request detected: ${requestId}`);
+      res.status(409).json({
+        success: false,
+        testCases: [],
+        totalGenerated: 0,
+        hasMore: false,
+        error: 'Request already in progress'
+      });
+      return true;
+    }
+    
+    if (now - existingRequest.timestamp < 5000) {
+      console.log(`⚠️ Recent duplicate request detected: ${requestId}`);
+      res.status(409).json({
+        success: false,
+        testCases: [],
+        totalGenerated: 0,
+        hasMore: false,
+        error: 'Request completed recently, please wait'
+      });
+      return true;
+    }
+  }
+  
+  return false;
+};
+
+// Helper function for consistent error handling
+const handleError = (error: unknown, message: string, res: Response, statusCode: number = 500): void => {
+  console.error(`❌ ${message}:`, error);
+  res.status(statusCode).json({
+    success: false,
+    error: error instanceof Error ? error.message : 'Unknown error'
+  });
+};
+
 // Cleanup old requests every 5 minutes
 setInterval(() => {
   const now = Date.now();
@@ -72,37 +117,12 @@ export const generateTestCasesStreaming = async (req: AuthenticatedRequest, res:
     requestId = reqId;
 
     // Request deduplication - prevent duplicate requests
+    if (requestId && handleRequestDeduplication(requestId, res)) {
+      return;
+    }
+    
     if (requestId) {
-      const now = Date.now();
-      const existingRequest = requestCache.get(requestId);
-      
-      if (existingRequest) {
-        if (existingRequest.processing) {
-          console.log(`⚠️ Duplicate request detected: ${requestId}`);
-          res.status(409).json({
-            success: false,
-            testCases: [],
-            totalGenerated: 0,
-            hasMore: false,
-            error: 'Request already in progress'
-          });
-          return;
-        }
-        
-        if (now - existingRequest.timestamp < 5000) {
-          console.log(`⚠️ Recent duplicate request detected: ${requestId}`);
-          res.status(409).json({
-            success: false,
-            testCases: [],
-            totalGenerated: 0,
-            hasMore: false,
-            error: 'Request completed recently, please wait'
-          });
-          return;
-        }
-      }
-      
-      requestCache.set(requestId, { timestamp: now, processing: true });
+      requestCache.set(requestId, { timestamp: Date.now(), processing: true });
     }
 
     // Rate limiting check
@@ -145,10 +165,7 @@ export const generateTestCasesStreaming = async (req: AuthenticatedRequest, res:
       return;
     }
 
-    console.log('🚀 Streaming test generation request received');
-    console.log(`📝 Prompt: ${prompt.substring(0, 100)}...`);
-    console.log(`📁 Files: ${fileIds.length}`);
-    console.log(`📊 Count: ${count}, Offset: ${offset}`);
+    console.log(`🚀 Test generation request: ${fileIds.length} files, count: ${count}`);
 
     // Process file content if files are provided
     let fileContent = '';
@@ -250,40 +267,12 @@ export const generateTestCases = async (req: AuthenticatedRequest, res: Response
     requestId = reqId;
 
     // Request deduplication - prevent duplicate requests
+    if (requestId && handleRequestDeduplication(requestId, res)) {
+      return;
+    }
+    
     if (requestId) {
-      const now = Date.now();
-      const existingRequest = requestCache.get(requestId);
-      
-      if (existingRequest) {
-        // If request is still processing, return error
-        if (existingRequest.processing) {
-          console.log(`⚠️ Duplicate request detected: ${requestId}`);
-          res.status(409).json({
-            success: false,
-            testCases: [],
-            totalGenerated: 0,
-            hasMore: false,
-            error: 'Request already in progress'
-          });
-          return;
-        }
-        
-        // If request was completed recently (within 5 seconds), return cached result
-        if (now - existingRequest.timestamp < 5000) {
-          console.log(`⚠️ Recent duplicate request detected: ${requestId}`);
-          res.status(409).json({
-            success: false,
-            testCases: [],
-            totalGenerated: 0,
-            hasMore: false,
-            error: 'Request completed recently, please wait'
-          });
-          return;
-        }
-      }
-      
-      // Mark request as processing
-      requestCache.set(requestId, { timestamp: now, processing: true });
+      requestCache.set(requestId, { timestamp: Date.now(), processing: true });
     }
 
     // Rate limiting check - prevent too many requests from same user
@@ -317,10 +306,6 @@ export const generateTestCases = async (req: AuthenticatedRequest, res: Response
       return;
     }
 
-    console.log('🚀 Test generation request received');
-    console.log(`📝 Prompt: ${prompt.substring(0, 100)}...`);
-    console.log(`📁 Files: ${fileIds.length}`);
-    console.log(`📊 Count: ${count}, Offset: ${offset}`);
 
     // Process file content if files are provided
     let fileContent = '';
@@ -457,7 +442,6 @@ export const storeFileContent = async (req: Request, res: Response): Promise<voi
     // Store content in cache
     fileContentCache.set(fileId, content);
     
-    console.log(`💾 File content stored for ID: ${fileId}`);
 
     res.json({
       success: true,
@@ -466,11 +450,7 @@ export const storeFileContent = async (req: Request, res: Response): Promise<voi
     });
 
   } catch (error) {
-    console.error('❌ Error storing file content:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to store file content'
-    });
+    handleError(error, 'Error storing file content', res);
   }
 };
 
@@ -498,11 +478,7 @@ export const getFileContent = async (req: Request, res: Response): Promise<void>
     });
 
   } catch (error) {
-    console.error('❌ Error retrieving file content:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to retrieve file content'
-    });
+    handleError(error, 'Error retrieving file content', res);
   }
 };
 
@@ -514,7 +490,6 @@ export const clearFileContent = async (req: Request, res: Response): Promise<voi
     const clearedCount = fileContentCache.size;
     fileContentCache.clear();
     
-    console.log(`🗑️ Cleared ${clearedCount} file content entries`);
 
     res.json({
       success: true,
@@ -522,11 +497,7 @@ export const clearFileContent = async (req: Request, res: Response): Promise<voi
     });
 
   } catch (error) {
-    console.error('❌ Error clearing file content:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to clear file content'
-    });
+    handleError(error, 'Error clearing file content', res);
   }
 };
 
@@ -580,12 +551,6 @@ export const generateTestCasesWithContext = async (req: AuthenticatedRequest, re
     // Type guard to ensure userId is string
     const userIdString: string = userId as string;
 
-    console.log('🚀 Context-aware test generation request received');
-    console.log(`📝 Prompt: ${prompt.substring(0, 100)}...`);
-    console.log(`📁 Files: ${fileIds.length}`);
-    console.log(`📊 Count: ${count}`);
-    console.log(`🔗 Parent Test Case: ${parentTestCaseId || 'None'}`);
-    console.log(`🪟 Context Window: ${contextWindowId || 'New'}`);
 
     // Process file content if files are provided
     let fileContent = '';

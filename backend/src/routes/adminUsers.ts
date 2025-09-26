@@ -18,6 +18,59 @@ const adminUsersRouter = express.Router();
 // ==================== ADMIN USER MANAGEMENT ROUTES ====================
 
 /**
+ * @swagger
+ * /admin/users/create-admin:
+ *   post:
+ *     summary: Create a new admin user
+ *     tags: [Admin - Users]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - firstName
+ *               - lastName
+ *               - emailId
+ *               - password
+ *             properties:
+ *               firstName:
+ *                 type: string
+ *                 example: Admin
+ *               lastName:
+ *                 type: string
+ *                 example: User
+ *               emailId:
+ *                 type: string
+ *                 format: email
+ *                 example: admin@example.com
+ *               password:
+ *                 type: string
+ *                 minLength: 8
+ *                 example: AdminPass123!
+ *               role:
+ *                 type: string
+ *                 enum: [admin, superadmin]
+ *                 default: admin
+ *               permissions:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                 example: ["view_analytics", "manage_users"]
+ *     responses:
+ *       201:
+ *         description: Admin user created successfully
+ *       400:
+ *         description: Validation error
+ *       403:
+ *         description: Super admin access required
+ *       409:
+ *         description: User already exists
+ */
+/**
  * Create New Admin User
  * POST /admin/users/create-admin
  * Requires: superadmin role

@@ -232,6 +232,9 @@ const options: swaggerJsdoc.Options = {
     './src/routes/*.ts',
     './src/controllers/*.ts',
     './src/controllers/**/*.ts',
+    './dist/src/routes/*.js',
+    './dist/src/controllers/*.js',
+    './dist/src/controllers/**/*.js',
   ],
 };
 

@@ -185,7 +185,6 @@ const enhancedAuth = async (req: any, res: Response, next: NextFunction): Promis
           isAdminUser: false
         } as AuthenticatedUser;
         
-        console.log(`👤 Regular user authenticated: ${regularUser.emailId}`);
       }
     }
     
@@ -266,7 +265,6 @@ const adminAuth = (req: Request, res: Response, next: NextFunction): void => {
       return;
     }
     
-    console.log(`🔐 Admin access granted to user: ${user.emailId} (${user.adminUser?.role || 'admin'})`);
     
     next();
   } catch (error) {
@@ -330,7 +328,6 @@ const superAdminAuth = (req: Request, res: Response, next: NextFunction): void =
       return;
     }
     
-    console.log(`🔐 Super admin access granted to user: ${user.emailId}`);
     
     next();
   } catch (error) {
@@ -426,7 +423,6 @@ const regularUserAuth = (req: Request, res: Response, next: NextFunction): void 
       return;
     }
     
-    console.log(`👤 Regular user access granted to user: ${user.emailId}`);
     
     next();
   } catch (error) {

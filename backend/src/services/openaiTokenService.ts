@@ -23,7 +23,6 @@ class OpenAITokenService {
             });
 
             await tokenUsage.save();
-            console.log(`📊 OpenAI token usage recorded: ${usageData.totalTokens} tokens, $${usageData.cost.toFixed(4)} for user ${usageData.userEmail}`);
             
             return tokenUsage;
         } catch (error) {

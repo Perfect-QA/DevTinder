@@ -44,7 +44,6 @@ app.set('trust proxy', 1);
 
 // In-Memory File Storage
 const fileCache = new Map<string, FileCacheData>();
-console.log("💾 Memory-based file storage initialized");
 
 // Configure multer with enhanced validation
 const upload = createMulterConfig({
@@ -131,12 +130,13 @@ app.get("/feed", userAuth, async (req: any, res: Response): Promise<void> => {
 // Upload endpoint - Store in memory and extract content
 app.post("/upload", upload.array("files", 10), createFileValidator(), handleMulterError, async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log("📤 Upload request received");
 
     if (!req.files || req.files.length === 0) {
       res.status(400).json({ error: "No files uploaded" });
       return;
     }
+
+    console.log(`📤 Upload request received: ${req.files.length} file(s)`);
 
     const fileInfos: UploadedFile[] = [];
     
@@ -160,7 +160,6 @@ app.post("/upload", upload.array("files", 10), createFileValidator(), handleMult
         uploadedAt: new Date().toISOString()
       });
 
-      console.log(`💾 File cached in memory: ${filename} (${file.size} bytes)`);
 
       // Extract content for test generation (both text files and images)
       let extractedContent = '';
@@ -170,14 +169,12 @@ app.post("/upload", upload.array("files", 10), createFileValidator(), handleMult
           file.originalname, 
           file.mimetype
         );
-        console.log(`📝 Content extracted from ${file.originalname}: ${extractedContent.length} characters`);
         
         // Store extracted content in fileContentCache for test generation
         const fileId = filename.split('.')[0];
         if (fileId) {
           fileContentCache.set(fileId, extractedContent);
         }
-        console.log(`💾 Content cached for file ID: ${fileId}`);
       } catch (contentError) {
         console.warn(`⚠️ Failed to extract content from ${file.originalname}:`, contentError);
         extractedContent = `[Content extraction failed for ${file.originalname}]`;
@@ -199,8 +196,6 @@ app.post("/upload", upload.array("files", 10), createFileValidator(), handleMult
       fileInfos.push(fileInfo);
     }
 
-    console.log(`🎉 ${req.files.length} file(s) cached in memory`);
-    console.log(`📊 Cache size: ${fileCache.size} files`);
 
     const response: UploadResponse = {
       success: true,
@@ -294,7 +289,6 @@ app.get("/file/:filename", (req: Request, res: Response): void => {
       'Content-Disposition': `inline; filename="${fileData.originalName}"`
     });
 
-    console.log(`📤 Serving from memory: ${filename}`);
     res.send(fileData.buffer);
 
   } catch (error) {
@@ -347,7 +341,6 @@ app.delete("/delete/:filename", (req: Request, res: Response): void => {
 
     if (fileCache.has(filename)) {
       fileCache.delete(filename);
-      console.log(`🗑️ File removed from cache: ${filename}`);
       res.json({
         success: true,
         message: "File deleted successfully",
@@ -375,7 +368,6 @@ app.delete("/clear-cache", (req: Request, res: Response): void => {
   try {
     const fileCount = fileCache.size;
     fileCache.clear();
-    console.log(`Cache cleared: ${fileCount} files removed`);
 
     res.json({
       success: true,

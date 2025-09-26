@@ -18,13 +18,102 @@ import {
 
 const router = express.Router();
 
+/**
+ * @swagger
+ * /api/test-generation/test:
+ *   get:
+ *     summary: Test endpoint to verify API is working
+ *     tags: [Test Generation]
+ *     responses:
+ *       200:
+ *         description: API is working
+ */
 // Test endpoint
 router.get('/test', (req, res) => {
   res.json({ success: true, message: 'Test generation API is working' });
 });
 
+/**
+ * @swagger
+ * /api/test-generation/generate:
+ *   post:
+ *     summary: Generate test cases from uploaded files
+ *     tags: [Test Generation]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - files
+ *             properties:
+ *               files:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     filename:
+ *                       type: string
+ *                     content:
+ *                       type: string
+ *               count:
+ *                 type: integer
+ *                 default: 5
+ *               level:
+ *                 type: string
+ *                 enum: [unit, integration, e2e]
+ *                 default: unit
+ *     responses:
+ *       200:
+ *         description: Test cases generated successfully
+ *       400:
+ *         description: Invalid request
+ *       500:
+ *         description: Generation failed
+ */
 // Test case generation routes (authentication optional for testing)
 router.post('/generate', generateTestCases as any);
+
+/**
+ * @swagger
+ * /api/test-generation/generate-streaming:
+ *   post:
+ *     summary: Generate test cases with streaming response
+ *     tags: [Test Generation]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - files
+ *             properties:
+ *               files:
+ *                 type: array
+ *                 items:
+ *                   type: object
+ *                   properties:
+ *                     filename:
+ *                       type: string
+ *                     content:
+ *                       type: string
+ *               count:
+ *                 type: integer
+ *                 default: 5
+ *               level:
+ *                 type: string
+ *                 enum: [unit, integration, e2e]
+ *                 default: unit
+ *     responses:
+ *       200:
+ *         description: Streaming test case generation
+ *         content:
+ *           text/event-stream:
+ *             schema:
+ *               type: string
+ */
 router.post('/generate-streaming', generateTestCasesStreaming as any);
 
 // Context window routes (require authentication)

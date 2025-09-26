@@ -1,6 +1,7 @@
 import express from 'express';
 import { AdminAuditController } from '../controllers/adminAuditController';
 import { userAuth } from '../middlewares/authmiddleware';
+import { enhancedAuth } from '../middlewares/enhancedAuth';
 import { 
   adminAuthWithPermissions, 
   adminAuthWithAudit,
@@ -85,7 +86,7 @@ const router = express.Router();
  *         description: Internal server error
  */
 router.get('/logs', 
-  userAuth, 
+  enhancedAuth, 
   adminAuthWithPermissions(['view_audit_logs']),
   adminAuditLogger(AdminAuditActions.VIEW_SENSITIVE_DATA),
   AdminAuditController.getAuditLogs
@@ -115,7 +116,7 @@ router.get('/logs',
  *         description: Internal server error
  */
 router.get('/high-risk', 
-  userAuth, 
+  enhancedAuth, 
   adminAuthWithPermissions(['view_audit_logs', 'view_security_alerts']),
   adminAuditLogger(AdminAuditActions.SECURITY_ALERT),
   AdminAuditController.getHighRiskActions
@@ -145,7 +146,7 @@ router.get('/high-risk',
  *         description: Internal server error
  */
 router.get('/summary', 
-  userAuth, 
+  enhancedAuth, 
   adminAuthWithPermissions(['view_analytics', 'view_audit_logs']),
   adminAuditLogger(AdminAuditActions.VIEW_SENSITIVE_DATA),
   AdminAuditController.getActivitySummary
@@ -181,7 +182,7 @@ router.get('/summary',
  *         description: Internal server error
  */
 router.get('/admin/:adminId', 
-  userAuth, 
+  enhancedAuth, 
   adminAuthWithPermissions(['view_audit_logs']),
   adminAuditLogger(AdminAuditActions.VIEW_SENSITIVE_DATA),
   AdminAuditController.getAdminActions
@@ -218,7 +219,7 @@ router.get('/admin/:adminId',
  *         description: Internal server error
  */
 router.get('/category/:category', 
-  userAuth, 
+  enhancedAuth, 
   adminAuthWithPermissions(['view_audit_logs']),
   adminAuditLogger(AdminAuditActions.VIEW_SENSITIVE_DATA),
   AdminAuditController.getActionsByCategory
@@ -255,7 +256,7 @@ router.get('/category/:category',
  *         description: Internal server error
  */
 router.get('/severity/:severity', 
-  userAuth, 
+  enhancedAuth, 
   adminAuthWithPermissions(['view_audit_logs']),
   adminAuditLogger(AdminAuditActions.VIEW_SENSITIVE_DATA),
   AdminAuditController.getActionsBySeverity
@@ -291,7 +292,7 @@ router.get('/severity/:severity',
  *         description: Internal server error
  */
 router.get('/recent', 
-  userAuth, 
+  enhancedAuth, 
   adminAuthWithPermissions(['view_audit_logs']),
   adminAuditLogger(AdminAuditActions.VIEW_SENSITIVE_DATA),
   AdminAuditController.getRecentActions
@@ -348,7 +349,7 @@ router.get('/recent',
  *         description: Internal server error
  */
 router.get('/export', 
-  userAuth, 
+  enhancedAuth, 
   adminAuthWithPermissions(['export_data', 'view_audit_logs']),
   adminAuditLogger(AdminAuditActions.EXPORT_DATA),
   AdminAuditController.exportAuditLogs
@@ -378,7 +379,7 @@ router.get('/export',
  *         description: Internal server error
  */
 router.get('/statistics', 
-  userAuth, 
+  enhancedAuth, 
   adminAuthWithPermissions(['view_analytics', 'view_audit_logs']),
   adminAuditLogger(AdminAuditActions.VIEW_SENSITIVE_DATA),
   AdminAuditController.getAuditStatistics

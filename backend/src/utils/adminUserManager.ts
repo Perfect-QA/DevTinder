@@ -170,8 +170,6 @@ export const promoteUserToAdmin = async (
     regularUser.role = role;
     await regularUser.save();
 
-    console.log(`✅ User promoted to admin: ${userEmail} (${role})`);
-
     return {
       success: true,
       user: {
@@ -282,8 +280,6 @@ export const updateAdminPermissions = async (
 
     await adminUser.save();
 
-    console.log(`✅ Admin permissions updated: ${adminUser.emailId}`);
-
     return {
       success: true,
       user: {
@@ -323,8 +319,6 @@ export const removeAdminAccess = async (userId: string): Promise<AdminUserRespon
     // Soft delete - mark as inactive
     adminUser.isActive = false;
     await adminUser.save();
-
-    console.log(`✅ Admin access removed: ${adminUser.emailId}`);
 
     return {
       success: true,
@@ -483,8 +477,6 @@ export const resetAdminPermissions = async (userId: string): Promise<AdminUserRe
 
     adminUser.resetPermissions();
     await adminUser.save();
-
-    console.log(`✅ Admin permissions reset to default: ${adminUser.emailId}`);
 
     return {
       success: true,

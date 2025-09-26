@@ -73,7 +73,6 @@ class OpenAIService {
       const userPrompt = this.createUserPrompt(context, count, offset);
 
       console.log("🤖 Generating test cases with OpenAI...");
-      console.log(`📊 Request: ${count} test cases, offset: ${offset}`);
       console.log(`🔑 Using model: ${this.model}`);
       console.log(`🔑 Max tokens: ${this.maxTokens}`);
 

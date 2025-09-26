@@ -328,7 +328,6 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
       
       if (result.success) {
         setUploadedFiles(prev => [...prev, ...result.files]);
-        console.log('Files uploaded successfully:', result.files);
         
         if (newFiles.length < files.length) {
           const duplicateCount = files.length - newFiles.length;
@@ -469,9 +468,9 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
       setGenerationError(errorMessage);
       console.error('❌ Streaming error:', error);
     } finally {
-      console.log('🏁 Streaming generation finished');
       setIsGenerating(false);
       setIsStreaming(false);
+      console.log('🏁 Streaming generation finished');
     }
   }, [testData, uploadedFiles, isGenerating, isStreaming, currentOffset]);
 
@@ -1023,7 +1022,6 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
               {/* Show shimmer loading for next test case only */}
               {isStreaming && (
                 <>
-                  {console.log('🔍 Shimmer should be visible - isStreaming:', isStreaming)}
                   <ShimmerLoader 
                     count={1} 
                   />

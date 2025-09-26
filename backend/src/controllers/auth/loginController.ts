@@ -2,6 +2,7 @@ import { validateLoginData } from "../../utils/loginValidation";
 import { validatePassword, getPasswordStrength } from "../../utils/passwordValidation";
 import { generateSessionId } from "./sessionController";
 import User from "../../models/user";
+import AdminUser from "../../models/adminUser";
 import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 import crypto from "crypto";
@@ -34,8 +35,19 @@ const login = async (req: Request, res: Response): Promise<void> => {
     validateLoginData(req);
     const { emailId, password } = req.body;
     
-    // Find user by email
-    const user = await User.findOne({ emailId });
+    // Find user by email - check both regular users and admin users
+    let user = await User.findOne({ emailId });
+    let isAdminUser = false;
+    
+    if (!user) {
+      // Check admin users collection
+      const adminUser = await AdminUser.findOne({ emailId });
+      if (adminUser) {
+        user = adminUser as any; // Cast to match the expected interface
+        isAdminUser = true;
+      }
+    }
+    
     if (!user) {
       sendErrorResponse(res, 401, "Invalid email or password");
       return;
@@ -93,23 +105,58 @@ const login = async (req: Request, res: Response): Promise<void> => {
     user.lastLogin = new Date();
     user.loginIP = req.ip || req.socket.remoteAddress || 'unknown';
     
-    // Create new session
-    const sessionId = generateSessionId();
-    const deviceId = req.headers['x-device-id'] as string || crypto.randomBytes(16).toString('hex');
-    const userAgent = req.headers['user-agent'] || 'Unknown';
-    const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+    // Handle session management differently for admin users
+    let sessionId = '';
+    let deviceId = '';
+    let deviceName = '';
     
-    // Generate better device name from user agent
-    const deviceName = generateDeviceName(userAgent, req.headers['x-device-name'] as string);
-    
-    user.addSession(sessionId, deviceId, deviceName, userAgent, ipAddress);
-    
-    // Save updated user information
-    await user.save();
+    if (isAdminUser) {
+      // For admin users, just save the basic login info
+      await user.save();
+    } else {
+      // For regular users, create full session management
+      sessionId = generateSessionId();
+      deviceId = req.headers['x-device-id'] as string || crypto.randomBytes(16).toString('hex');
+      const userAgent = req.headers['user-agent'] || 'Unknown';
+      const ipAddress = req.ip || req.socket.remoteAddress || 'unknown';
+      
+      // Generate better device name from user agent
+      deviceName = generateDeviceName(userAgent, req.headers['x-device-name'] as string);
+      
+      user.addSession(sessionId, deviceId, deviceName, userAgent, ipAddress);
+      
+      // Save updated user information
+      await user.save();
+    }
     
     // Generate JWT token and refresh token
-    const token = user.getJWT();
-    const refreshToken = user.generateRefreshToken();
+    let token = user.getJWT();
+    let refreshToken = '';
+    
+    if (isAdminUser) {
+      // For admin users, generate a simple refresh token
+      refreshToken = crypto.randomBytes(32).toString('hex');
+    } else {
+      // For regular users, use the model's refresh token method
+      refreshToken = user.generateRefreshToken();
+    }
+    
+    // For admin users, include additional admin information in the token
+    if (isAdminUser) {
+      const adminUser = user as any;
+      token = jwt.sign(
+        {
+          userId: adminUser._id,
+          emailId: adminUser.emailId,
+          role: adminUser.role,
+          isAdmin: true,
+          permissions: adminUser.permissions,
+          isAdminUser: true
+        },
+        process.env.JWT_SECRET!,
+        { expiresIn: process.env.JWT_EXPIRY! } as jwt.SignOptions
+      );
+    }
     
     // Save user with refresh token
     await user.save();
@@ -134,7 +181,7 @@ const login = async (req: Request, res: Response): Promise<void> => {
     console.log(`User logged in: ${user.emailId} at ${new Date().toISOString()}`);
     
     // Return success response
-    sendSuccessResponse(res, "Login successful", {
+    const responseData: any = {
       user: {
         id: user._id,
         firstName: user.firstName,
@@ -151,14 +198,24 @@ const login = async (req: Request, res: Response): Promise<void> => {
         loginIP: user.loginIP,
         createdAt: user.createdAt,
         updatedAt: user.updatedAt
-      },
-      session: {
-        sessionId,
-        deviceId,
-        deviceName,
-        deviceType: user.getSessionById(sessionId)?.deviceType || 'unknown'
       }
-    });
+    };
+
+    // Add session info only for regular users
+    if (!isAdminUser) {
+      responseData.session = {
+        sessionId: sessionId,
+        deviceId: deviceId,
+        deviceName: deviceName,
+        deviceType: user.getSessionById(sessionId)?.deviceType || 'unknown'
+      };
+    }
+
+    // Include token in response for API testing (in addition to HTTP-only cookie)
+    responseData.token = token;
+    responseData.refreshToken = refreshToken;
+    
+    sendSuccessResponse(res, "Login successful", responseData);
     
   } catch (error: any) {
     console.error("Login error:", error);

@@ -6,7 +6,7 @@
  */
 
 import mongoose from 'mongoose';
-import { createAdminUser, promoteUserToAdmin, listAdminUsers } from '../utils/createAdminUser';
+import { createAdminUser, listAdminUsers } from '../utils/adminUserManager';
 import { connectDB } from '../config/database';
 
 const setupAdmin = async () => {
@@ -57,7 +57,9 @@ const setupAdmin = async () => {
         'manage_system',
         'view_logs',
         'manage_permissions'
-      ]
+      ],
+      createdBy: 'system',
+      createdByEmail: 'system@perfectai.com'
     };
 
     console.log('📝 Creating admin user...');
@@ -66,9 +68,9 @@ const setupAdmin = async () => {
     if (result.success) {
       console.log('✅ Admin user created successfully!');
       console.log('📋 Admin Details:');
-      console.log(`  Email: ${result.user.emailId}`);
-      console.log(`  Role: ${result.user.role}`);
-      console.log(`  Permissions: ${result.user.permissions.join(', ')}`);
+      console.log(`  Email: ${result.user?.emailId}`);
+      console.log(`  Role: ${result.user?.role}`);
+      console.log(`  Permissions: ${result.user?.permissions?.join(', ')}`);
       console.log(`  Password: ${adminData.password}`);
       console.log('');
       console.log('🔐 Please change the default password after first login!');
