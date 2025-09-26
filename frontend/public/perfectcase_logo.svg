@@ -23,12 +23,12 @@
   
   <!-- Text -->
   <text x="60" y="45" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" 
-        font-size="28" font-weight="700" fill="#ffffff">
+        font-size="28" font-weight="700" fill="#2563EB">
     perfect
   </text>
   
   <text x="170" y="45" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" 
-        font-size="28" font-weight="300" fill="#ffffff">
+        font-size="28" font-weight="300" fill="#3B82F6">
     case
   </text>
   

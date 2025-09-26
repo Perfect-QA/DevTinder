@@ -94,6 +94,11 @@ export interface IUser extends Document {
     oauthAccountsLinked: string[];
     // Last OAuth provider used
     lastOAuthProvider?: 'google' | 'github' | 'local';
+    // Admin and role management
+    role: 'user' | 'admin' | 'superadmin';
+    isAdmin: boolean;
+    permissions: string[];
+    lastAdminAction?: Date;
     // Methods
     getJWT(): string;
     validatePassword(passwordInputByUser: string): Promise<boolean>;
@@ -318,6 +323,23 @@ const userSchema = new Schema<IUser>({
     lastOAuthProvider: {
         type: String,
         enum: ['google', 'github', 'local']
+    },
+    // Admin and role management
+    role: {
+        type: String,
+        enum: ['user', 'admin', 'superadmin'],
+        default: 'user'
+    },
+    isAdmin: {
+        type: Boolean,
+        default: false
+    },
+    permissions: {
+        type: [String],
+        default: []
+    },
+    lastAdminAction: {
+        type: Date
     }
 
 }, {timestamps:true, collection: 'users'});
@@ -398,9 +420,11 @@ userSchema.methods.addSession = function(sessionId: string, deviceId: string, de
     
     if (existingSessionIndex >= 0) {
         // Update existing session
-        user.activeSessions[existingSessionIndex].lastActivity = new Date();
-        user.activeSessions[existingSessionIndex].isActive = true;
-        user.activeSessions[existingSessionIndex].ipAddress = ipAddress;
+        if (user.activeSessions[existingSessionIndex]) {
+          user.activeSessions[existingSessionIndex].lastActivity = new Date();
+          user.activeSessions[existingSessionIndex].isActive = true;
+          user.activeSessions[existingSessionIndex].ipAddress = ipAddress;
+        }
     } else {
         // Add new session
         user.activeSessions.push({

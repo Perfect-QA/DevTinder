@@ -124,7 +124,7 @@ const requiredEnvVars: RequiredEnvVars = {
   RATE_LIMIT_MAX_REQUESTS: {
     required: false,
     description: 'Maximum requests per window',
-    defaultValue: '100'
+    defaultValue: '50'
   },
   
   // Security Configuration
@@ -141,12 +141,12 @@ const requiredEnvVars: RequiredEnvVars = {
   OPENAI_MODEL: {
     required: false,
     description: 'OpenAI model to use for generation',
-    defaultValue: 'gpt-4'
+    defaultValue: 'gpt-3.5-turbo'
   },
   OPENAI_MAX_TOKENS: {
     required: false,
     description: 'Maximum tokens for OpenAI responses',
-    defaultValue: '4000'
+    defaultValue: '2000'
   },
   
   // Development Configuration
@@ -231,7 +231,7 @@ export const validateEnvironment = (): void => {
     console.log('❌ MISSING REQUIRED ENVIRONMENT VARIABLES:');
     missing.forEach(key => {
       const config = requiredEnvVars[key];
-      console.log(`   • ${key}: ${config.description}`);
+      console.log(`   • ${key}: ${config?.description || 'No description available'}`);
     });
     console.log('\n💡 Create a .env file in the backend directory with these variables.');
     console.log('   Copy env.example to backend/.env and update the values.');

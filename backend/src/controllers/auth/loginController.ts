@@ -44,7 +44,7 @@ const login = async (req: Request, res: Response): Promise<void> => {
     // If lock has expired, reset the lock
     if (user.isLocked && user.lockUntil && user.lockUntil <= new Date()) {
       user.isLocked = false;
-      user.lockUntil = undefined;
+      user.lockUntil = undefined as any;
       user.failedLoginAttempts = 0;
       await user.save();
     }
@@ -86,7 +86,7 @@ const login = async (req: Request, res: Response): Promise<void> => {
     // Reset failed login attempts on successful login
     user.failedLoginAttempts = 0;
     user.isLocked = false;
-    user.lockUntil = undefined;
+    user.lockUntil = undefined as any;
     
     // Update login tracking information
     user.loginCount += 1;

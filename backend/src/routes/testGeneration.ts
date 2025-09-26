@@ -3,6 +3,13 @@ import { userAuth } from '../middlewares/authmiddleware';
 import { apiLimiter } from '../middlewares/rateLimiting';
 import {
   generateTestCases,
+  generateTestCasesStreaming,
+  generateTestCasesWithContext,
+  getContextWindow,
+  getUserContextWindows,
+  getTestCasesByLevel,
+  getTestCasesByParent,
+  deleteContextWindow,
   storeFileContent,
   getFileContent,
   clearFileContent,
@@ -17,7 +24,16 @@ router.get('/test', (req, res) => {
 });
 
 // Test case generation routes (authentication optional for testing)
-router.post('/generate', generateTestCases);
+router.post('/generate', generateTestCases as any);
+router.post('/generate-streaming', generateTestCasesStreaming as any);
+
+// Context window routes (require authentication)
+router.post('/generate-with-context', userAuth, generateTestCasesWithContext as any);
+router.get('/context-windows', userAuth, getUserContextWindows as any);
+router.get('/context-window/:contextWindowId', userAuth, getContextWindow as any);
+router.get('/context-window/:contextWindowId/level/:level', userAuth, getTestCasesByLevel as any);
+router.get('/context-window/:contextWindowId/parent/:parentTestCaseId', userAuth, getTestCasesByParent as any);
+router.delete('/context-window/:contextWindowId', userAuth, deleteContextWindow as any);
 
 // File content management routes
 router.post('/file-content', storeFileContent);

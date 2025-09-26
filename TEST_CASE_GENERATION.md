@@ -4,7 +4,7 @@ This document explains how to set up and use the AI-powered test case generation
 
 ## Features
 
-- **AI-Powered Test Generation**: Generate comprehensive test cases using OpenAI GPT-4
+- **AI-Powered Test Generation**: Generate comprehensive test cases using OpenAI GPT-3.5-turbo
 - **File Upload Support**: Upload various file types (.txt, .docx, .pdf, .xlsx, .png, .jpg, etc.) for context
 - **Priority-Based Sorting**: Test cases are automatically sorted by priority (P1 > P2 > P3)
 - **Pagination**: Initially generates 10 test cases, with "Load More" functionality (max 30 total per session)
@@ -26,7 +26,7 @@ This document explains how to set up and use the AI-powered test case generation
    ```env
    # OpenAI Configuration
    OPENAI_API_KEY=your-openai-api-key-here
-   OPENAI_MODEL=gpt-4
+   OPENAI_MODEL=gpt-3.5-turbo
    OPENAI_MAX_TOKENS=4000
    ```
 

@@ -1,6 +1,8 @@
 import express, { Request, Response, NextFunction } from "express";
 import { connectDB } from "./config/database";
 import { validateEnvironment } from "./config/envValidator";
+import { config } from "./config/environments";
+import { createIndexes } from "./config/databaseIndexes";
 import sessionCleanupService from "./services/sessionCleanupService";
 import User from "./models/user";
 import cookieParser from 'cookie-parser';
@@ -9,10 +11,17 @@ import session from 'express-session';
 import passport from './config/oauth';
 import { userAuth } from "./middlewares/authmiddleware";
 import { apiLimiter } from "./middlewares/rateLimiting";
+import { requestLogger, errorLogger, performanceLogger } from "./middlewares/logging";
+import { globalErrorHandler, notFoundHandler, validationErrorHandler, rateLimitErrorHandler } from "./middlewares/errorHandler";
+import { swaggerUiHandler, swaggerJson, apiHealthCheck } from "./middlewares/swagger";
+import { createFileValidator, createMulterConfig, handleMulterError } from "./middlewares/fileValidation";
 import authRouter from "./routes/auth";
 import profileRouter from "./routes/profile";
 import userRouter from "./routes/user";
 import testGenerationRouter from "./routes/testGeneration";
+import openaiAdminRouter from "./routes/openaiAdmin";
+import adminAuditRouter from "./routes/adminAudit";
+import adminUsersRouter from "./routes/adminUsers";
 import multer from "multer";
 import path from "path";
 import { 
@@ -23,6 +32,7 @@ import {
   AuthenticatedRequest 
 } from "./types";
 import openaiService from "./services/openaiService";
+import { fileContentCache } from "./controllers/testGenerationController";
 
 // Validate environment variables before starting the app
 validateEnvironment();
@@ -36,37 +46,17 @@ app.set('trust proxy', 1);
 const fileCache = new Map<string, FileCacheData>();
 console.log("💾 Memory-based file storage initialized");
 
-// File type validation
-const imageTypes = /jpeg|jpg|png|gif|webp|svg/;
-const fileTypes = /pdf|doc|docx|txt|xls|xlsx|ppt|pptx|zip|rar/;
-
-// Configure multer for memory storage
-const storage = multer.memoryStorage();
-
-const upload = multer({
-  storage: storage,
-  limits: {
-    fileSize: parseInt(process.env.MAX_FILE_SIZE ?? '10485760'), // Default 10MB
-    files: parseInt(process.env.MAX_FILES ?? '10') // Default 10 files
-  },
-  fileFilter: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase().slice(1);
-    if (imageTypes.test(ext) || fileTypes.test(ext)) {
-      cb(null, true);
-    } else {
-      cb(new Error("Only images and documents are allowed!"));
-    }
-  }
+// Configure multer with enhanced validation
+const upload = createMulterConfig({
+  maxSize: config.fileUpload.maxSize,
+  maxFiles: config.fileUpload.maxFiles,
+  allowedTypes: config.fileUpload.allowedTypes,
 });
 
 // CORS configuration
-const corsOrigins = process.env.CORS_ORIGINS 
-  ? process.env.CORS_ORIGINS.split(',').map(origin => origin.trim())
-  : [process.env.CLIENT_URL!];
-
 app.use(cors({
-    origin: corsOrigins,
-    credentials: true
+    origin: config.cors.origins,
+    credentials: config.cors.credentials
 }));
 
 // JSON parsing middleware that only parses for POST/PUT/PATCH requests
@@ -81,6 +71,10 @@ app.use((req: Request, res: Response, next: NextFunction) => {
   }
 });
 
+// Add logging middleware
+app.use(requestLogger);
+app.use(performanceLogger);
+
 app.use(cookieParser());
 
 // Apply general API rate limiting
@@ -88,12 +82,12 @@ app.use(apiLimiter);
 
 // Session configuration
 app.use(session({
-    secret: process.env.SESSION_SECRET || 'your-session-secret',
+    secret: config.session.secret,
     resave: false,
     saveUninitialized: false,
     cookie: {
-        secure: process.env.NODE_ENV === 'production',
-        maxAge: 24 * 60 * 60 * 1000 // 24 hours
+        secure: config.session.secure,
+        maxAge: config.session.maxAge
     }
 }));
 
@@ -111,11 +105,19 @@ app.use((req: Request, res: Response, next: NextFunction) => {
 app.use(passport.initialize());
 app.use(passport.session());
 
+// API Documentation routes
+app.get("/api-docs", swaggerUiHandler);
+app.get("/api-docs.json", swaggerJson);
+app.get("/health", apiHealthCheck);
+
 // Routes
 app.use("/auth", authRouter);
 app.use("/", profileRouter);
 app.use("/", userRouter);
 app.use("/api/test-generation", testGenerationRouter);
+app.use("/admin/openai", openaiAdminRouter);
+app.use("/admin/audit", adminAuditRouter);
+app.use("/admin/users", adminUsersRouter);
 
 app.get("/feed", userAuth, async (req: any, res: Response): Promise<void> => {
   try {
@@ -127,7 +129,7 @@ app.get("/feed", userAuth, async (req: any, res: Response): Promise<void> => {
 });
 
 // Upload endpoint - Store in memory and extract content
-app.post("/upload", upload.array("files", 10), async (req: Request, res: Response): Promise<void> => {
+app.post("/upload", upload.array("files", 10), createFileValidator(), handleMulterError, async (req: Request, res: Response): Promise<void> => {
   try {
     console.log("📤 Upload request received");
 
@@ -141,6 +143,7 @@ app.post("/upload", upload.array("files", 10), async (req: Request, res: Respons
     // Process files sequentially to extract content
     for (const file of req.files as Express.Multer.File[]) {
       const ext = path.extname(file.originalname).toLowerCase().slice(1);
+      const imageTypes = /jpeg|jpg|png|gif|webp|svg|img/;
       const isImage = imageTypes.test(ext);
 
       // Generate unique filename
@@ -159,24 +162,30 @@ app.post("/upload", upload.array("files", 10), async (req: Request, res: Respons
 
       console.log(`💾 File cached in memory: ${filename} (${file.size} bytes)`);
 
-      // Extract text content for test generation
+      // Extract content for test generation (both text files and images)
       let extractedContent = '';
       try {
-        if (!isImage) {
-          extractedContent = await openaiService.extractTextFromFile(
-            file.buffer, 
-            file.originalname, 
-            file.mimetype
-          );
-          console.log(`📝 Content extracted from ${file.originalname}: ${extractedContent.length} characters`);
+        extractedContent = await openaiService.extractTextFromFile(
+          file.buffer, 
+          file.originalname, 
+          file.mimetype
+        );
+        console.log(`📝 Content extracted from ${file.originalname}: ${extractedContent.length} characters`);
+        
+        // Store extracted content in fileContentCache for test generation
+        const fileId = filename.split('.')[0];
+        if (fileId) {
+          fileContentCache.set(fileId, extractedContent);
         }
+        console.log(`💾 Content cached for file ID: ${fileId}`);
       } catch (contentError) {
         console.warn(`⚠️ Failed to extract content from ${file.originalname}:`, contentError);
         extractedContent = `[Content extraction failed for ${file.originalname}]`;
       }
 
+      const fileId = filename.split('.')[0];
       const fileInfo: UploadedFile = {
-        id: filename.split('.')[0],
+        id: fileId || filename,
         filename: filename,
         originalName: file.originalname,
         size: file.size,
@@ -211,10 +220,65 @@ app.post("/upload", upload.array("files", 10), async (req: Request, res: Respons
   }
 });
 
+// Debug endpoint to test OpenAI API
+app.get("/debug/test-openai", async (req: Request, res: Response): Promise<void> => {
+  try {
+    console.log('🔍 Testing OpenAI API connection...');
+    const testResult = await openaiService.generateTestCases({
+      prompt: "Generate 1 test case for a simple login form",
+      fileContent: "",
+      fileName: "test",
+      fileType: "text",
+      count: 1,
+      offset: 0
+    });
+    res.json({
+      success: true,
+      message: 'OpenAI API test completed',
+      result: testResult
+    });
+  } catch (error) {
+    console.error('❌ OpenAI API test failed:', error);
+    res.status(500).json({ 
+      success: false, 
+      error: 'OpenAI API test failed',
+      details: error instanceof Error ? error.message : 'Unknown error'
+    });
+  }
+});
+
+// Debug endpoint to check file content cache
+app.get("/debug/file-content", (req: Request, res: Response): void => {
+  try {
+    const cacheKeys = Array.from(fileContentCache.keys());
+    const cacheData = Array.from(fileContentCache.entries()).map((entry) => {
+      const [key, content] = entry;
+      return {
+        fileId: key,
+        contentLength: content.length,
+        contentPreview: content.substring(0, 100) + (content.length > 100 ? '...' : '')
+      };
+    });
+    
+    res.json({
+      success: true,
+      cacheKeys,
+      cacheData,
+      totalFiles: fileContentCache.size
+    });
+  } catch (error) {
+    res.status(500).json({ error: 'Failed to get cache data' });
+  }
+});
+
 // Serve files from memory
 app.get("/file/:filename", (req: Request, res: Response): void => {
   try {
     const filename = req.params.filename;
+    if (!filename) {
+      res.status(400).json({ error: "Filename is required" });
+      return;
+    }
     const fileData = fileCache.get(filename);
 
     if (!fileData) {
@@ -245,8 +309,9 @@ app.get("/files", (req: Request, res: Response): void => {
     const files: UploadedFile[] = [];
 
     fileCache.forEach((fileData, filename) => {
+      const fileId = filename.split('.')[0];
       files.push({
-        id: filename.split('.')[0],
+        id: fileId || filename,
         filename: filename,
         originalName: fileData.originalName,
         size: fileData.size,
@@ -275,6 +340,10 @@ app.get("/files", (req: Request, res: Response): void => {
 app.delete("/delete/:filename", (req: Request, res: Response): void => {
   try {
     const filename = req.params.filename;
+    if (!filename) {
+      res.status(400).json({ error: "Filename is required" });
+      return;
+    }
 
     if (fileCache.has(filename)) {
       fileCache.delete(filename);
@@ -367,20 +436,49 @@ app.get("/health", (req: Request, res: Response): void => {
   });
 });
 
+// Error handling middleware (must be last)
+app.use(validationErrorHandler);
+app.use(rateLimitErrorHandler);
+app.use(errorLogger);
+app.use(globalErrorHandler);
+app.use(notFoundHandler);
+
+// Global error handlers
+process.on('uncaughtException', (error: Error) => {
+  console.error('Uncaught Exception:', error);
+  process.exit(1);
+});
+
+process.on('unhandledRejection', (reason: any, promise: Promise<any>) => {
+  console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+  process.exit(1);
+});
+
 connectDB()
-  .then(() => {
+  .then(async () => {
     console.log("Database connected successfully");
+    
+    // Create database indexes
+    try {
+      await createIndexes();
+      console.log("✅ Database indexes created successfully");
+    } catch (error) {
+      console.warn("⚠️ Failed to create database indexes:", error);
+    }
     
     // Start session cleanup cron job
     sessionCleanupService.startCronJob();
     
-    app.listen(process.env.PORT, () => {
-      console.log("Server is running on port " + process.env.PORT);
+    app.listen(config.port, () => {
+      console.log(`🚀 Server is running on port ${config.port}`);
+      console.log(`📚 API Documentation: http://localhost:${config.port}/api-docs`);
+      console.log(`🏥 Health Check: http://localhost:${config.port}/health`);
       console.log("🧹 Session cleanup service started");
     });
   })
   .catch((error) => {
     console.error("Database connection failed:", error);
+    process.exit(1);
   });
 
 export default app;

@@ -196,3 +196,6 @@ export interface TestGenerationResponse {
   message?: string;
   error?: string;
 }
+
+// Re-export context window types
+export * from './contextWindow';
