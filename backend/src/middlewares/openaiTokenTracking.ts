@@ -58,12 +58,12 @@ export const trackOpenAIUsage = (operation: string = 'api_call') => {
                         return;
                     }
 
-                    // Calculate cost using OpenAI GPT-3.5-turbo pricing
-                    const modelName = responseData.model || 'gpt-3.5-turbo';
+                    // Calculate cost using OpenAI GPT-4o-mini pricing
+                    const modelName = responseData.model || 'gpt-4o-mini';
                     
-                    // GPT-3.5-turbo pricing (most commonly used model)
-                    const costPerInputToken = 0.0000005;   // $0.50 per 1M tokens
-                    const costPerOutputToken = 0.0000015;  // $1.50 per 1M tokens
+                    // GPT-4o-mini pricing (most commonly used model)
+                    const costPerInputToken = 0.00000015;   // $0.15 per 1M tokens
+                    const costPerOutputToken = 0.0000006;    // $0.60 per 1M tokens
                     
                     const cost = (promptTokens * costPerInputToken) + (completionTokens * costPerOutputToken);
 

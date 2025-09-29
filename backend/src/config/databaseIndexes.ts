@@ -17,8 +17,8 @@ const indexDefinitions: IndexDefinition[] = [
   // User collection indexes
   {
     collection: 'users',
-    index: { email: 1 },
-    options: { unique: true, name: 'email_unique' },
+    index: { emailId: 1 },
+    options: { unique: true, name: 'emailId_unique' },
   },
   {
     collection: 'users',
@@ -199,7 +199,7 @@ export const createIndexes = async (): Promise<void> => {
         // Check if collection exists first
         const collections = await db.listCollections({ name: definition.collection }).toArray();
         if (collections.length === 0) {
-          logger.debug(`Collection ${definition.collection} does not exist, skipping index creation`);
+          // Skip silently for non-existent collections
           continue;
         }
 
@@ -216,17 +216,23 @@ export const createIndexes = async (): Promise<void> => {
 
         if (!indexExists) {
           await collection.createIndex(definition.index, definition.options);
-          logger.info(`Created index: ${indexName} on collection: ${definition.collection}`);
-        } else {
-          logger.debug(`Index already exists: ${indexName} on collection: ${definition.collection}`);
+          // Only log important index creations
+          if (definition.options?.unique) {
+            logger.info(`Created unique index: ${indexName} on collection: ${definition.collection}`);
+          }
         }
-      } catch (error) {
-        logger.error(`Failed to create index for collection ${definition.collection}:`, error);
+        // Skip logging for existing indexes
+      } catch (error: any) {
+        // Only log critical errors, skip index conflicts
+        const errorMessage = error?.message || String(error);
+        if (!errorMessage.includes('Index already exists') && !errorMessage.includes('IndexOptionsConflict')) {
+          logger.error(`Failed to create index for collection ${definition.collection}:`, error);
+        }
         // Continue with other indexes even if one fails
       }
     }
 
-    logger.info('Database indexes creation completed');
+    // Only log if there were any issues, otherwise skip
   } catch (error) {
     logger.error('Failed to create database indexes:', error);
     throw error;

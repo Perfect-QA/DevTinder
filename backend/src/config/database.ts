@@ -34,7 +34,7 @@ const connectDB = async (): Promise<void> => {
         // Configure Mongoose-specific settings after connection
         mongoose.set('bufferCommands', false); // Disable mongoose buffering
         
-        console.log("MongoDB connection established");
+        // Connection established - no need to log this
         
         // Handle connection events
         mongoose.connection.on('error', (err) => {

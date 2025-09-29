@@ -214,7 +214,7 @@ export const handleMulterError = (error: any, req: Request, res: Response, next:
 
     switch (error.code) {
       case 'LIMIT_FILE_SIZE':
-        message = `File too large. Maximum size is ${formatBytes(config.fileUpload.maxSize)}`;
+        message = `File too large. Maximum size is ${formatBytes(config.fileUpload.maxSize)}. Please compress your file or use a smaller file.`;
         break;
       case 'LIMIT_FILE_COUNT':
         message = `Too many files. Maximum is ${config.fileUpload.maxFiles} files`;

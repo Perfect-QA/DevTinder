@@ -152,12 +152,12 @@ export const generateTestCasesStreaming = async (req: AuthenticatedRequest, res:
       return;
     }
 
-    // Daily token usage limit (roughly 20,000 tokens per day per user for GPT-3.5 Turbo)
+    // Daily token usage limit (roughly 50,000 tokens per day per user for GPT-4o-mini)
     const today = new Date().toDateString();
     const userTokenKey = `tokens_${userId}`;
     const userTokenUsage = dailyTokenUsage.get(userTokenKey);
     
-    if (userTokenUsage && userTokenUsage.date === today && userTokenUsage.tokens > 20000) {
+    if (userTokenUsage && userTokenUsage.date === today && userTokenUsage.tokens > 50000) {
       res.status(429).json({
         success: false,
         error: 'Daily token limit exceeded. Please try again tomorrow.'
@@ -336,15 +336,15 @@ export const generateTestCases = async (req: AuthenticatedRequest, res: Response
         const completionTokens = result.usage.completion_tokens || 0;
         const totalTokens = result.usage.total_tokens || 0;
         
-        // Calculate cost using OpenAI GPT-3.5-turbo pricing
-        const costPerInputToken = 0.0000005;   // $0.50 per 1M tokens
-        const costPerOutputToken = 0.0000015;  // $1.50 per 1M tokens
+        // Calculate cost using OpenAI GPT-4o-mini pricing
+        const costPerInputToken = 0.00000015;   // $0.15 per 1M tokens
+        const costPerOutputToken = 0.0000006;   // $0.60 per 1M tokens
         const cost = (promptTokens * costPerInputToken) + (completionTokens * costPerOutputToken);
 
         const usageData: OpenAIUsageData = {
           userId: req.user._id || req.user.id,
           userEmail: req.user.emailId || 'unknown@example.com',
-          modelName: 'gpt-3.5-turbo',
+          modelName: 'gpt-4o-mini',
           promptTokens,
           completionTokens,
           totalTokens,

@@ -39,7 +39,7 @@ class OpenAIService {
 
   constructor() {
     const apiKey = getEnvVar("OPENAI_API_KEY");
-    this.model = getEnvVar("OPENAI_MODEL", "gpt-3.5-turbo");
+    this.model = getEnvVar("OPENAI_MODEL", "gpt-4o-mini");
     this.maxTokens = parseInt(getEnvVar("OPENAI_MAX_TOKENS", "2000"));
 
     this.openai = new OpenAI({
@@ -245,6 +245,19 @@ Focus: P1 first, then P2, then P3.`;
   }
 
   /**
+   * Optimize extracted content to reduce token usage
+   */
+  private optimizeContent(content: string, maxLength: number = 2000): string {
+    if (content.length <= maxLength) {
+      return content;
+    }
+    
+    // Truncate and add note about length
+    const truncated = content.substring(0, maxLength);
+    return `${truncated}\n\n[Content truncated - original length: ${content.length} characters. Only first ${maxLength} characters shown to optimize token usage.]`;
+  }
+
+  /**
    * Extract text content from various file types
    */
   async extractTextFromFile(
@@ -257,17 +270,17 @@ Focus: P1 first, then P2, then P3.`;
     try {
       switch (ext) {
         case "txt":
-          return buffer.toString("utf-8");
+          return this.optimizeContent(buffer.toString("utf-8"));
 
         case "pdf":
           const pdfParse = require("pdf-parse");
           const pdfData = await pdfParse(buffer);
-          return pdfData.text;
+          return this.optimizeContent(pdfData.text);
 
         case "docx":
           const mammoth = require("mammoth");
           const docxResult = await mammoth.extractRawText({ buffer });
-          return docxResult.value;
+          return this.optimizeContent(docxResult.value);
 
         case "xlsx":
         case "xls":
@@ -278,7 +291,7 @@ Focus: P1 first, then P2, then P3.`;
             const worksheet = workbook.Sheets[sheetName];
             text += XLSX.utils.sheet_to_txt(worksheet) + "\n";
           });
-          return text;
+          return this.optimizeContent(text);
 
         case "doc":
           // For .doc files, we'll return a placeholder since mammoth doesn't support them
@@ -296,7 +309,53 @@ Focus: P1 first, then P2, then P3.`;
         case "png":
         case "jpg":
         case "jpeg":
-          return `[Image file: ${fileName}. Please provide a text description of the image content for test case generation.]`;
+        case "gif":
+        case "webp":
+        case "bmp":
+        case "tiff":
+          // Use OCR to extract text from images
+          try {
+            const { createWorker } = require('tesseract.js');
+            const worker = await createWorker();
+            
+            // Configure OCR for better text recognition
+            await worker.loadLanguage('eng');
+            await worker.initialize('eng');
+            
+            const { data: { text } } = await worker.recognize(buffer);
+            await worker.terminate();
+            
+            if (text && text.trim().length > 0) {
+              const optimizedText = this.optimizeContent(text.trim());
+              return `[Image content extracted from ${fileName}]:\n${optimizedText}`;
+            } else {
+              return `[Image file: ${fileName}. No text content detected in the image.]`;
+            }
+          } catch (ocrError) {
+            console.warn(`⚠️ OCR failed for ${fileName}:`, ocrError);
+            return `[Image file: ${fileName}. OCR extraction failed. Please provide a text description of the image content.]`;
+          }
+
+        case "svg":
+          // SVG files can contain text elements
+          try {
+            const svgContent = buffer.toString('utf-8');
+            // Extract text from SVG using regex to find text elements
+            const textMatches = svgContent.match(/<text[^>]*>(.*?)<\/text>/gi);
+            if (textMatches && textMatches.length > 0) {
+              const extractedText = textMatches
+                .map(match => match.replace(/<[^>]*>/g, '').trim())
+                .filter(text => text.length > 0)
+                .join('\n');
+              const optimizedText = this.optimizeContent(extractedText);
+              return `[SVG content extracted from ${fileName}]:\n${optimizedText}`;
+            } else {
+              return `[SVG file: ${fileName}. No text content found in SVG elements.]`;
+            }
+          } catch (svgError) {
+            console.warn(`⚠️ SVG parsing failed for ${fileName}:`, svgError);
+            return `[SVG file: ${fileName}. Failed to parse SVG content.]`;
+          }
 
         default:
           return `[File: ${fileName} (${mimeType}). Content extraction not supported for this file type.]`;

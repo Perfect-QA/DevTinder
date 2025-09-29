@@ -133,7 +133,6 @@ const userSchema = new Schema<IUser>({
         lowercase: true,
         required: true,
         trim: true,
-        unique: true,
         validate: validateEmail
     },
     password: {

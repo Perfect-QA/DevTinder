@@ -136,7 +136,7 @@ app.post("/upload", upload.array("files", 10), createFileValidator(), handleMult
       return;
     }
 
-    console.log(`📤 Upload request received: ${req.files.length} file(s)`);
+    // Upload request received - no need to log this
 
     const fileInfos: UploadedFile[] = [];
     
@@ -218,7 +218,7 @@ app.post("/upload", upload.array("files", 10), createFileValidator(), handleMult
 // Debug endpoint to test OpenAI API
 app.get("/debug/test-openai", async (req: Request, res: Response): Promise<void> => {
   try {
-    console.log('🔍 Testing OpenAI API connection...');
+    // Testing OpenAI API connection
     const testResult = await openaiService.generateTestCases({
       prompt: "Generate 1 test case for a simple login form",
       fileContent: "",
@@ -450,10 +450,9 @@ connectDB()
   .then(async () => {
     console.log("Database connected successfully");
     
-    // Create database indexes
+    // Create database indexes silently
     try {
       await createIndexes();
-      console.log("✅ Database indexes created successfully");
     } catch (error) {
       console.warn("⚠️ Failed to create database indexes:", error);
     }

@@ -68,6 +68,15 @@ export const swaggerUiHandler = (req: Request, res: Response, next: NextFunction
     .swagger-ui .topbar { display: none }
     .swagger-ui .info .title { color: #10b981 }
     .swagger-ui .scheme-container { background: #1f2937; padding: 20px; border-radius: 8px }
+    .auth-warning { 
+      background: #fef3c7; 
+      border: 1px solid #f59e0b; 
+      color: #92400e; 
+      padding: 12px; 
+      border-radius: 6px; 
+      margin: 10px 0; 
+      font-weight: bold;
+    }
   </style>
 </head>
 <body>
@@ -101,6 +110,9 @@ export const swaggerUiHandler = (req: Request, res: Response, next: NextFunction
           const token = localStorage.getItem('swagger-ui-token');
           if (token) {
             request.headers.Authorization = 'Bearer ' + token;
+            console.log('Authorization header added to request:', request.url);
+          } else {
+            console.log('No token found for request:', request.url);
           }
           return request;
         },
@@ -110,119 +122,48 @@ export const swaggerUiHandler = (req: Request, res: Response, next: NextFunction
             localStorage.removeItem('swagger-ui-token');
             // Show error message
             const errorMsg = response.status === 401 ? 'Token expired or invalid' : 'Access denied';
-            alert('❌ ' + errorMsg + '. Please login again.');
+            alert('ERROR: ' + errorMsg + '. Please login again.');
           }
           return response;
         },
         onComplete: function() {
-          // Function to validate JWT format
-          function isValidJWTFormat(token) {
-            if (!token || typeof token !== 'string') return false;
-            
-            // JWT should have 3 parts separated by dots
-            const parts = token.split('.');
-            if (parts.length !== 3) return false;
-            
-            // Each part should be base64 encoded
-            try {
-              parts.forEach(part => {
-                if (part.length === 0) throw new Error('Empty part');
-                // Check if it's valid base64
-                atob(part.replace(/-/g, '+').replace(/_/g, '/'));
-              });
-              return true;
-            } catch (e) {
-              return false;
-            }
-          }
+          console.log('=== SWAGGER UI COMPLETE - STARTING SIMPLE SETUP ===');
           
-          // Clear any invalid tokens on page load
-          const existingToken = localStorage.getItem('swagger-ui-token');
-          if (existingToken && !isValidJWTFormat(existingToken)) {
-            localStorage.removeItem('swagger-ui-token');
-            console.log('Removed invalid token from storage');
-          }
-          
-          // Add custom authorization button
-          const authBtn = document.createElement('button');
-          authBtn.innerHTML = '🔑 Admin Login';
-          authBtn.className = 'btn authorize';
-          authBtn.style.cssText = 'margin-left: 10px; background: #10b981; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;';
-          authBtn.onclick = function() {
-            const token = prompt('Enter your admin JWT token:');
-            if (token) {
-              // First validate JWT format
-              if (!isValidJWTFormat(token)) {
-                alert('❌ Invalid JWT format. Please enter a valid JWT token.');
-                return;
+          // Simple function to create button
+          function createSimpleButton() {
+            console.log('Creating simple button...');
+            
+            // Remove any existing buttons
+            const existing = document.querySelector('.simple-auth-button');
+            if (existing) existing.remove();
+            
+            // Create button
+            const button = document.createElement('button');
+            button.className = 'simple-auth-button';
+            button.innerHTML = 'ADMIN LOGIN';
+            button.style.cssText = 'position: fixed; top: 20px; right: 20px; z-index: 99999; background: #10b981; color: white; padding: 15px 25px; border: none; border-radius: 8px; font-weight: bold; font-size: 16px; cursor: pointer; box-shadow: 0 4px 12px rgba(0,0,0,0.3);';
+            
+            button.onclick = function() {
+              const token = prompt('Enter your admin JWT token:');
+              if (token) {
+                localStorage.setItem('swagger-ui-token', token);
+                alert('Token saved! You are now authorized.');
+                button.innerHTML = 'LOGGED IN';
+                button.style.background = '#059669';
               }
-              
-              // Validate token by making a test request to an admin endpoint
-              fetch('/admin/users/list', {
-                method: 'GET',
-                headers: {
-                  'Authorization': 'Bearer ' + token,
-                  'Content-Type': 'application/json'
-                }
-              })
-              .then(response => {
-                if (response.ok) {
-                  localStorage.setItem('swagger-ui-token', token);
-                  alert('✅ Token validated! You are now authorized to test admin APIs.');
-                  location.reload();
-                } else if (response.status === 401) {
-                  alert('❌ Invalid token. Please check your credentials and try again.');
-                } else if (response.status === 403) {
-                  alert('❌ Access denied. This token does not have admin privileges.');
-                } else {
-                  alert('❌ Token validation failed. Please try again.');
-                }
-              })
-              .catch(error => {
-                console.error('Token validation error:', error);
-                alert('❌ Token validation failed. Please check your connection and try again.');
-              });
-            }
-          };
-          
-          const authorizeBtn = document.querySelector('.auth-btn-wrapper');
-          if (authorizeBtn) {
-            authorizeBtn.appendChild(authBtn);
-          }
-          
-          // Add logout button and status indicator if token exists
-          const currentToken = localStorage.getItem('swagger-ui-token');
-          if (currentToken) {
-            // Add status indicator
-            const statusDiv = document.createElement('div');
-            statusDiv.innerHTML = '✅ Admin Authorized';
-            statusDiv.style.cssText = 'margin-left: 10px; color: #10b981; font-weight: bold; display: inline-block;';
-            
-            // Add logout button
-            const logoutBtn = document.createElement('button');
-            logoutBtn.innerHTML = '🚪 Logout';
-            logoutBtn.className = 'btn logout';
-            logoutBtn.style.cssText = 'margin-left: 10px; background: #ef4444; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;';
-            logoutBtn.onclick = function() {
-              localStorage.removeItem('swagger-ui-token');
-              alert('Logged out successfully!');
-              location.reload();
             };
             
-            if (authorizeBtn) {
-              authorizeBtn.appendChild(statusDiv);
-              authorizeBtn.appendChild(logoutBtn);
-            }
-          } else {
-            // Add unauthorized status
-            const statusDiv = document.createElement('div');
-            statusDiv.innerHTML = '❌ Not Authorized';
-            statusDiv.style.cssText = 'margin-left: 10px; color: #ef4444; font-weight: bold; display: inline-block;';
-            
-            if (authorizeBtn) {
-              authorizeBtn.appendChild(statusDiv);
-            }
+            document.body.appendChild(button);
+            console.log('Simple button created and added to body');
           }
+          
+          // Create button immediately
+          createSimpleButton();
+          
+          // Also create after delays
+          setTimeout(createSimpleButton, 1000);
+          setTimeout(createSimpleButton, 3000);
+          setTimeout(createSimpleButton, 5000);
         }
       });
     };
