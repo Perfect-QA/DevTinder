@@ -1,11 +1,11 @@
+# PerfectAI Project Specific .gitignore
+
 # Dependencies
 node_modules/
-npm-debug.log*
-yarn-debug.log*
-yarn-error.log*
+backend/node_modules/
+frontend/node_modules/
 
 # Environment variables
-.env
 .env.local
 .env.development.local
 .env.test.local
@@ -13,112 +13,64 @@ yarn-error.log*
 backend/.env
 frontend/.env
 
+# Build outputs
+backend/dist/
+frontend/build/
+frontend/out/
+
 # Logs
 logs/
 *.log
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
-lerna-debug.log*
 
-# Build outputs
-dist/
-build/
-out/
-.next/
-.nuxt/
-.cache/
+# TypeScript compiled files
+*.js.map
+*.d.ts.map
 
-# Runtime data
-pids
-*.pid
-*.seed
-*.pid.lock
+# Upload directories
+backend/src/uploads/
+frontend/public/uploads/
 
-# Coverage directory used by tools like istanbul
-coverage/
-*.lcov
-
-# nyc test coverage
-.nyc_output
-
-# Dependency directories
-jspm_packages/
-
-# TypeScript cache
-*.tsbuildinfo
-
-# Optional npm cache directory
-.npm
-
-# Optional eslint cache
-.eslintcache
-
-# Microbundle cache
-.rpt2_cache/
-.rts2_cache_cjs/
-.rts2_cache_es/
-.rts2_cache_umd/
-
-# Optional REPL history
-.node_repl_history
-
-# Output of 'npm pack'
-*.tgz
-
-# Yarn Integrity file
-.yarn-integrity
-
-# parcel-bundler cache (https://parceljs.org/)
-.parcel-cache
+# Session files
+sessions/
 
 # IDE files
 .vscode/
 .idea/
 *.swp
 *.swo
-*~
 
 # OS files
 .DS_Store
-.DS_Store?
-._*
-.Spotlight-V100
-.Trashes
-ehthumbs.db
 Thumbs.db
 
 # Temporary files
 *.tmp
 *.temp
-temp/
-tmp/
 
 # Database files
 *.db
 *.sqlite
 *.sqlite3
 
-# Upload directories
-uploads/
-public/uploads/
-
-# Session files
-sessions/
-
 # Backup files
 *.bak
 *.backup
 
-# Lock files (keep package-lock.json but ignore others)
+# Test coverage
+coverage/
+.nyc_output
+
+# Cache directories
+.cache/
+.npm/
+.eslintcache
+
+# Lock files (keep package-lock.json)
 yarn.lock
 pnpm-lock.yaml
 
-# Test files
-test-results/
-playwright-report/
-playwright/.cache/
-
-# Local development files
-.local/
-local/
+backend/src/config/environments.ts
+backend/src/config/envValidator.ts
