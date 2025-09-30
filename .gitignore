@@ -74,3 +74,6 @@ pnpm-lock.yaml
 
 backend/src/config/environments.ts
 backend/src/config/envValidator.ts
+
+# Documentation files
+*.md
