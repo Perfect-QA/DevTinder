@@ -22,7 +22,7 @@ All token usage data is stored in the `openai_token_usage` collection with the f
 {
   userId: ObjectId,           // Reference to the user
   userEmail: string,          // User's email for easy identification
-  modelName: string,          // AI model used (e.g., 'gpt-3.5-turbo')
+  modelName: string,          // AI model used (e.g., 'gpt-4o-mini')
   promptTokens: number,        // Input tokens consumed
   completionTokens: number,    // Output tokens generated
   totalTokens: number,        // Total tokens used
@@ -38,7 +38,13 @@ All token usage data is stored in the `openai_token_usage` collection with the f
 
 ### 3. Cost Calculation
 The system calculates costs using approximate OpenAI pricing:
-- **GPT-3.5-turbo**: $0.00003 per input token, $0.00006 per output token
+- **GPT-4o-mini**: $0.00000015 per input token, $0.0000006 per output token
+
+#### Cost Benefits of GPT-4o-mini:
+- **Input tokens**: $0.15 per 1M tokens (vs $0.50 for GPT-3.5-turbo)
+- **Output tokens**: $0.60 per 1M tokens (vs $1.50 for GPT-3.5-turbo)
+- **Overall savings**: ~70% cheaper than GPT-3.5-turbo
+- **Better performance**: Improved reasoning and output quality
 
 ## Admin Access Endpoints
 
@@ -168,11 +174,11 @@ GET /admin/openai/user/user123/history?page=1&limit=10
         "_id": "usage123",
         "userId": "user123",
         "userEmail": "john@example.com",
-        "modelName": "gpt-3.5-turbo",
+        "modelName": "gpt-4o-mini",
         "promptTokens": 100,
         "completionTokens": 50,
         "totalTokens": 150,
-        "cost": 0.0045,
+        "cost": 0.0009,
         "operation": "test_generation",
         "timestamp": "2024-01-15T10:30:00Z"
       }

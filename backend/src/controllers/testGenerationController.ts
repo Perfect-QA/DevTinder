@@ -1,6 +1,7 @@
 import { Request, Response } from 'express';
 import openaiService from '../services/openaiService';
 import contextWindowService from '../services/contextWindowService';
+import cacheService from '../services/cacheService';
 import { AuthenticatedRequest } from '../types';
 import { ContextWindowRequest } from '../types/contextWindow';
 import { trackOpenAIUsage, recordOpenAIUsage } from '../middlewares/openaiTokenTracking';
@@ -136,6 +137,53 @@ export const generateTestCasesStreaming = async (req: AuthenticatedRequest, res:
       userRequestCache.set(userRequestKey, recentRequests);
     }
 
+    // Check for cached test cases first (transparent caching)
+    const cacheSessionId = req.headers['x-session-id'] as string || 'default';
+    let cachedTestCases: TestCase[] = [];
+    
+    if (userId && offset === 0) {
+      // Only load cache for initial generation (offset = 0)
+      cachedTestCases = cacheService.loadTestCases(userId as string, cacheSessionId);
+      if (cachedTestCases.length > 0) {
+        console.log(`📂 Found ${cachedTestCases.length} cached test cases for user ${userId}`);
+        
+        // Send cached test cases first
+        res.writeHead(200, {
+          'Content-Type': 'text/event-stream',
+          'Cache-Control': 'no-cache',
+          'Connection': 'keep-alive',
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Allow-Headers': 'Cache-Control'
+        });
+
+        // Send cached test cases
+        for (let i = 0; i < cachedTestCases.length; i++) {
+          const testCase = cachedTestCases[i];
+          res.write(`data: ${JSON.stringify({
+            type: 'testCase',
+            testCase: testCase,
+            index: i,
+            isCached: true
+          })}\n\n`);
+          
+          // Small delay for streaming effect
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+
+        // Send completion event for cached results
+        res.write(`data: ${JSON.stringify({
+          type: 'complete',
+          totalGenerated: cachedTestCases.length,
+          hasMore: cachedTestCases.length >= count,
+          message: `Loaded ${cachedTestCases.length} cached test cases`,
+          isCached: true
+        })}\n\n`);
+
+        res.end();
+        return;
+      }
+    }
+
     if (!prompt || prompt.trim().length === 0) {
       res.status(400).json({
         success: false,
@@ -223,6 +271,13 @@ export const generateTestCasesStreaming = async (req: AuthenticatedRequest, res:
       
       // Small delay for streaming effect
       await new Promise(resolve => setTimeout(resolve, 200));
+    }
+
+    // Save test cases to cache
+    const cacheUserId = req.user?._id as string;
+    const saveSessionId = req.headers['x-session-id'] as string || 'default';
+    if (cacheUserId && allTestCases.length > 0) {
+      cacheService.saveTestCases(cacheUserId, saveSessionId, allTestCases);
     }
 
     // Send completion event
@@ -853,3 +908,4 @@ export const deleteContextWindow = async (req: AuthenticatedRequest, res: Respon
     });
   }
 };
+

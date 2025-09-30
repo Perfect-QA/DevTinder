@@ -44,6 +44,10 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
   const [hasMoreTests, setHasMoreTests] = useState<boolean>(false);
   const [currentOffset, setCurrentOffset] = useState<number>(0);
   
+  // New state for initial vs additional generation
+  const [hasInitialGeneration, setHasInitialGeneration] = useState<boolean>(false);
+  const [isGeneratingMore, setIsGeneratingMore] = useState<boolean>(false);
+  
   // Streaming state
   const [isStreaming, setIsStreaming] = useState<boolean>(false);
   // Always use streaming mode
@@ -51,8 +55,7 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
   // Dropdown state for sub test generation
   const [openDropdown, setOpenDropdown] = useState<number | null>(null);
   
-  // Context window state
-  const [contextWindowId, setContextWindowId] = useState<string | null>(null);
+  // Sub-test generation state
   const [isGeneratingSubTests, setIsGeneratingSubTests] = useState<boolean>(false);
   const [subTestGenerationError, setSubTestGenerationError] = useState<string | null>(null);
   
@@ -136,41 +139,17 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
     setShowExportDropdown(false);
   };
 
-  // Generate sub-test cases using context window
+  // Generate sub-test cases with streaming
   const generateSubTests = async (parentTestCase: TestCase, count: number) => {
     try {
       setIsGeneratingSubTests(true);
       setSubTestGenerationError(null);
       setOpenDropdown(null);
 
-      // Create context window if it doesn't exist
-      let currentContextWindowId = contextWindowId;
-      if (!currentContextWindowId) {
-        const createResponse = await fetch('/api/test-generation/generate-with-context', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          credentials: 'include',
-          body: JSON.stringify({
-            prompt: `Initial test case: ${parentTestCase.summary}`,
-            count: 1
-          })
-        });
+      console.log(`🚀 Starting sub-test generation for: ${parentTestCase.summary}`);
 
-        if (!createResponse.ok) {
-          throw new Error('Failed to create context window');
-        }
-
-        const createData = await createResponse.json();
-        if (createData.success && createData.contextWindow) {
-          currentContextWindowId = createData.contextWindow.id;
-          setContextWindowId(currentContextWindowId);
-        }
-      }
-
-      // Generate sub-test cases
-      const response = await fetch('/api/test-generation/generate-with-context', {
+      // Use streaming endpoint for sub-test generation
+      const response = await fetch(API_ENDPOINTS.TEST_GENERATION, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -178,22 +157,76 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
         credentials: 'include',
         body: JSON.stringify({
           prompt: `Generate ${count} detailed sub-test cases for: ${parentTestCase.summary}`,
-          contextWindowId: currentContextWindowId,
-          parentTestCaseId: parentTestCase.id.toString(),
-          count: count
+          fileIds: [],
+          count: count,
+          offset: 0,
+          requestId: `subtest-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`
         })
       });
 
       if (!response.ok) {
-        throw new Error('Failed to generate sub-test cases');
+        throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      const data = await response.json();
-      if (data.success && data.testCases) {
-        // Add sub-test cases to the main list
-        setGeneratedTestCases(prev => [...prev, ...data.testCases]);
-        console.log(`✅ Generated ${data.testCases.length} sub-test cases for: ${parentTestCase.summary}`);
+      const reader = response.body?.getReader();
+      if (!reader) {
+        throw new Error('No response body reader available');
       }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
+      const subTestCases: TestCase[] = [];
+
+      // Stream sub-test cases
+      while (true) {
+        const { done, value } = await reader.read();
+        
+        if (done) break;
+
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop() || '';
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+              
+              switch (data.type) {
+                case 'connection':
+                  console.log('🔗 Connected to sub-test streaming');
+                  break;
+                  
+                case 'testCase':
+                  // Add sub-test case with parent reference
+                  const subTestCase = {
+                    ...data.testCase,
+                    parentId: parentTestCase.id,
+                    isSubTest: true
+                  };
+                  subTestCases.push(subTestCase);
+                  
+                  // Add to main list immediately for streaming effect
+                  setGeneratedTestCases(prev => [...prev, subTestCase]);
+                  
+                  console.log(`✅ Generated sub-test case ${data.index}/${data.total}: ${data.testCase.summary}`);
+                  break;
+                  
+                case 'complete':
+                  console.log('🎉 Sub-test generation complete');
+                  break;
+                  
+                case 'error':
+                  throw new Error(data.error);
+              }
+            } catch (parseError) {
+              console.warn('Failed to parse sub-test streaming data:', line);
+            }
+          }
+        }
+      }
+
+      console.log(`✅ Generated ${subTestCases.length} sub-test cases for: ${parentTestCase.summary}`);
     } catch (error) {
       console.error('❌ Error generating sub-test cases:', error);
       setSubTestGenerationError(error instanceof Error ? error.message : 'Failed to generate sub-test cases');
@@ -370,9 +403,16 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
     setIsStreaming(true);
     setGenerationError(null);
     
-    // Reset offset for new generation (not load more)
+    // Handle initial vs additional generation
     if (!isLoadMore) {
+      // Initial generation - always generate exactly 10 test cases
       setCurrentOffset(0);
+      setHasInitialGeneration(false);
+      setGeneratedTestCases([]); // Clear previous results
+      setTotalGenerated(0);
+    } else {
+      // Additional generation - user explicitly requested more
+      setIsGeneratingMore(true);
     }
 
     try {
@@ -381,7 +421,7 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
       const request: TestGenerationRequest = {
         prompt: testData.trim() || 'Generate test cases from the uploaded files',
         fileIds: uploadedFiles.map(file => file.id),
-        count: isLoadMore ? 10 : 10,
+        count: 10, // Always generate exactly 10 test cases
         offset: isLoadMore ? currentOffset : 0,
         requestId: uniqueRequestId
       };
@@ -446,6 +486,9 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
                   
                 case 'complete':
                   setHasMoreTests(data.hasMore);
+                  if (!isLoadMore) {
+                    setHasInitialGeneration(true);
+                  }
                   console.log('🎉 Streaming complete:', data.message);
                   break;
                   
@@ -470,13 +513,15 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
     } finally {
       setIsGenerating(false);
       setIsStreaming(false);
+      setIsGeneratingMore(false);
       console.log('🏁 Streaming generation finished');
     }
   }, [testData, uploadedFiles, isGenerating, isStreaming, currentOffset]);
 
 
-  // Load more test cases
+  // Load more test cases - only available after initial generation
   const loadMoreTestCases = (): void => {
+    if (!hasInitialGeneration) return;
     setCurrentOffset(prev => prev + 10); // Update offset for next batch
     generateTestCasesStreaming(true);
   };
@@ -899,7 +944,14 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
                         ? 'scrollbar-thumb-gray-400 scrollbar-track-gray-200 hover:scrollbar-thumb-gray-600' 
                         : 'scrollbar-thumb-gray-600 scrollbar-track-gray-700 hover:scrollbar-thumb-gray-500'
                     }`}>
-                      {test.summary}
+                      <div className={`flex items-start ${(test as any).isSubTest ? 'ml-4 border-l-2 border-teal-400 pl-2' : ''}`}>
+                        {(test as any).isSubTest && (
+                          <span className="text-teal-400 text-xs mr-2 mt-0.5">└─</span>
+                        )}
+                        <span className={`${(test as any).isSubTest ? 'text-sm text-gray-500' : ''}`}>
+                          {test.summary}
+                        </span>
+                      </div>
                     </div>
                   </td>
                   <td className={`px-6 py-4 text-sm max-w-xs ${
@@ -965,10 +1017,10 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
                             <button 
                               onClick={() => generateSubTests(test, 3)}
                               disabled={isGeneratingSubTests}
-                              className={`block w-full text-left px-4 py-2 text-sm transition-colors ${
+                              className={`block w-full text-left px-4 py-2 text-sm transition-colors font-medium ${
                                 theme === 'light'
-                                  ? 'text-gray-700 hover:bg-gray-100 hover:text-gray-900 disabled:opacity-50 disabled:cursor-not-allowed'
-                                  : 'text-gray-300 hover:bg-gray-700 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed'
+                                  ? 'text-teal-700 hover:bg-teal-50 hover:text-teal-900 disabled:opacity-50 disabled:cursor-not-allowed'
+                                  : 'text-teal-300 hover:bg-teal-900/20 hover:text-teal-200 disabled:opacity-50 disabled:cursor-not-allowed'
                               }`}
                             >
                               {isGeneratingSubTests ? 'Generating...' : 'Generate 3 Sub Tests'}
@@ -982,7 +1034,7 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
                                   : 'text-gray-300 hover:bg-gray-700 hover:text-white disabled:opacity-50 disabled:cursor-not-allowed'
                               }`}
                             >
-                              {isGeneratingSubTests ? 'Generating...' : 'Generate 5 Sub Tests'}
+                              {isGeneratingSubTests ? 'Generating...' : 'Generate 3 Sub Tests'}
                             </button>
                             <button 
                               onClick={() => generateSubTests(test, 10)}
@@ -1063,6 +1115,27 @@ const UploadTestData: React.FC<UploadTestDataProps> = () => {
               <div className="text-center text-gray-400">
                 <p className="text-sm">🎉 Maximum limit reached: 100 test cases</p>
                 <p className="text-xs mt-1">You can export or start a new generation</p>
+              </div>
+            </div>
+          )}
+          
+          {/* Generate More Test Cases Button - Only show after initial generation */}
+          {hasInitialGeneration && totalGenerated < 100 && (
+            <div className="p-6 border-t border-gray-700">
+              <div className="text-center">
+                <LoadingButton
+                  onClick={loadMoreTestCases}
+                  loading={isGeneratingMore}
+                  loadingText="Generating More Test Cases..."
+                  variant="secondary"
+                  size="lg"
+                  className="w-full max-w-md mx-auto"
+                >
+                  Generate More Test Cases
+                </LoadingButton>
+                <p className="text-sm text-gray-400 mt-2">
+                  Generate 10 additional test cases using GPT-4o-mini
+                </p>
               </div>
             </div>
           )}
