@@ -7,7 +7,6 @@ import {
   generateTestCasesWithContext,
   getContextWindow,
   getUserContextWindows,
-  getTestCasesByLevel,
   getTestCasesByParent,
   deleteContextWindow,
   storeFileContent,
@@ -60,10 +59,9 @@ router.get('/test', (req, res) => {
  *               count:
  *                 type: integer
  *                 default: 5
- *               level:
+ *               prompt:
  *                 type: string
- *                 enum: [unit, integration, e2e]
- *                 default: unit
+ *                 description: Custom prompt for test case generation
  *     responses:
  *       200:
  *         description: Test cases generated successfully
@@ -102,10 +100,9 @@ router.post('/generate', generateTestCases as any);
  *               count:
  *                 type: integer
  *                 default: 5
- *               level:
+ *               prompt:
  *                 type: string
- *                 enum: [unit, integration, e2e]
- *                 default: unit
+ *                 description: Custom prompt for test case generation
  *     responses:
  *       200:
  *         description: Streaming test case generation
@@ -120,7 +117,6 @@ router.post('/generate-streaming', generateTestCasesStreaming as any);
 router.post('/generate-with-context', userAuth, generateTestCasesWithContext as any);
 router.get('/context-windows', userAuth, getUserContextWindows as any);
 router.get('/context-window/:contextWindowId', userAuth, getContextWindow as any);
-router.get('/context-window/:contextWindowId/level/:level', userAuth, getTestCasesByLevel as any);
 router.get('/context-window/:contextWindowId/parent/:parentTestCaseId', userAuth, getTestCasesByParent as any);
 router.delete('/context-window/:contextWindowId', userAuth, deleteContextWindow as any);
 

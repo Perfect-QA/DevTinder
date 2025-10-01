@@ -4,7 +4,6 @@ import {
   TestCaseContext, 
   ContextWindowRequest, 
   ContextWindowResponse,
-  ContextNavigation,
   ContextWindowStats
 } from '../types/contextWindow';
 // Define TestCase interface locally to avoid circular dependency
@@ -40,8 +39,6 @@ class ContextWindowService {
         rootPrompt: request.prompt,
         fileIds: request.fileIds || [],
         testCases: [],
-        currentLevel: 0,
-        maxLevel: 0,
         createdAt: new Date(),
         updatedAt: new Date()
       };
@@ -147,7 +144,6 @@ class ContextWindowService {
         expectedResult: testCase.expectedResult,
         priority: testCase.priority,
         parentId: parentTestCaseId,
-        level: parentTestCaseId ? this.getTestCaseLevel(contextWindow, parentTestCaseId) + 1 : 0,
         createdAt: new Date(),
         updatedAt: new Date()
       }));
@@ -155,10 +151,6 @@ class ContextWindowService {
       // Add test cases to context window
       contextWindow.testCases.push(...contextTestCases);
       
-      // Update level information
-      const maxLevel = Math.max(...contextTestCases.map(tc => tc.level));
-      contextWindow.maxLevel = Math.max(contextWindow.maxLevel, maxLevel);
-      contextWindow.currentLevel = maxLevel;
       contextWindow.updatedAt = new Date();
 
       return {
@@ -176,38 +168,6 @@ class ContextWindowService {
     }
   }
 
-  /**
-   * Get test cases for a specific level
-   */
-  async getTestCasesByLevel(
-    contextWindowId: string,
-    level: number
-  ): Promise<ContextWindowResponse> {
-    try {
-      const contextWindow = this.contextWindows.get(contextWindowId);
-      
-      if (!contextWindow) {
-        return {
-          success: false,
-          error: 'Context window not found'
-        };
-      }
-
-      const testCasesAtLevel = contextWindow.testCases.filter(tc => tc.level === level);
-
-      return {
-        success: true,
-        testCases: testCasesAtLevel,
-        message: 'Found ' + testCasesAtLevel.length + ' test cases at level ' + level
-      };
-    } catch (error) {
-      console.error('❌ Error getting test cases by level:', error);
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : 'Failed to get test cases by level'
-      };
-    }
-  }
 
   /**
    * Get test cases for a specific parent
@@ -242,26 +202,6 @@ class ContextWindowService {
     }
   }
 
-  /**
-   * Get navigation information for context window
-   */
-  async getContextNavigation(contextWindowId: string): Promise<ContextNavigation> {
-    const contextWindow = this.contextWindows.get(contextWindowId);
-    
-    if (!contextWindow) {
-      throw new Error('Context window not found');
-    }
-
-    const breadcrumb = this.buildBreadcrumb(contextWindow);
-    
-    return {
-      currentLevel: contextWindow.currentLevel,
-      maxLevel: contextWindow.maxLevel,
-      canGoBack: contextWindow.currentLevel > 0,
-      canGoForward: contextWindow.currentLevel < contextWindow.maxLevel,
-      breadcrumb
-    };
-  }
 
   /**
    * Get context window statistics
@@ -273,23 +213,15 @@ class ContextWindowService {
       throw new Error('Context window not found');
     }
 
-    const testCasesByLevel: Record<number, number> = {};
     const testCasesByPriority: Record<string, number> = {};
 
     contextWindow.testCases.forEach(tc => {
-      testCasesByLevel[tc.level] = (testCasesByLevel[tc.level] || 0) + 1;
       testCasesByPriority[tc.priority] = (testCasesByPriority[tc.priority] || 0) + 1;
     });
 
-    const levelsCount = Object.keys(testCasesByLevel).length;
-    const averageTestCasesPerLevel = contextWindow.testCases.length / levelsCount;
-
     return {
       totalTestCases: contextWindow.testCases.length,
-      levelsCount,
-      testCasesByLevel,
-      testCasesByPriority,
-      averageTestCasesPerLevel
+      testCasesByPriority
     };
   }
 
@@ -332,45 +264,6 @@ class ContextWindowService {
         error: error instanceof Error ? error.message : 'Failed to delete context window'
       };
     }
-  }
-
-  /**
-   * Helper method to get test case level
-   */
-  private getTestCaseLevel(contextWindow: ContextWindow, testCaseId: string): number {
-    const testCase = contextWindow.testCases.find(tc => tc.id === testCaseId);
-    return testCase ? testCase.level : 0;
-  }
-
-  /**
-   * Helper method to build breadcrumb navigation
-   */
-  private buildBreadcrumb(contextWindow: ContextWindow): Array<{
-    level: number;
-    testCaseId: string;
-    summary: string;
-  }> {
-    const breadcrumb: Array<{
-      level: number;
-      testCaseId: string;
-      summary: string;
-    }> = [];
-
-    // Find root level test cases
-    const rootTestCases = contextWindow.testCases.filter(tc => tc.level === 0);
-    
-    // Build breadcrumb from current level
-    const currentLevelTestCases = contextWindow.testCases.filter(tc => tc.level === contextWindow.currentLevel);
-    
-    currentLevelTestCases.forEach(tc => {
-      breadcrumb.push({
-        level: tc.level,
-        testCaseId: tc.id,
-        summary: tc.summary
-      });
-    });
-
-    return breadcrumb;
   }
 
   /**

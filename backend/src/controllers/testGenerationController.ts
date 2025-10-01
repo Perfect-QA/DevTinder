@@ -687,8 +687,6 @@ Generate ${count} detailed sub-test cases.`;
     // Get updated context window
     const updatedContext = await contextWindowService.getContextWindow(currentContextWindowId!);
     
-    // Get navigation information
-    const navigation = await contextWindowService.getContextNavigation(currentContextWindowId!);
     
     // Get statistics
     const stats = await contextWindowService.getContextWindowStats(currentContextWindowId!);
@@ -697,7 +695,6 @@ Generate ${count} detailed sub-test cases.`;
       success: true,
       testCases: result.testCases,
       contextWindow: updatedContext.contextWindow,
-      navigation,
       stats,
       totalGenerated: result.totalGenerated,
       hasMore: result.hasMore,
@@ -744,13 +741,11 @@ export const getContextWindow = async (req: AuthenticatedRequest, res: Response)
       return;
     }
 
-    // Get navigation and stats
-    const navigation = await contextWindowService.getContextNavigation(contextWindowId);
+    // Get stats
     const stats = await contextWindowService.getContextWindowStats(contextWindowId);
 
     res.json({
       ...result,
-      navigation,
       stats
     });
 
@@ -791,50 +786,6 @@ export const getUserContextWindows = async (req: AuthenticatedRequest, res: Resp
   }
 };
 
-/**
- * Get test cases by level
- */
-export const getTestCasesByLevel = async (req: AuthenticatedRequest, res: Response): Promise<void> => {
-  try {
-    const { contextWindowId } = req.params;
-    const { level } = req.query;
-    const userId = req.user?._id;
-
-    if (!userId) {
-      res.status(401).json({
-        success: false,
-        error: 'User authentication required'
-      });
-      return;
-    }
-
-    if (!contextWindowId) {
-      res.status(400).json({
-        success: false,
-        error: 'Context window ID is required'
-      });
-      return;
-    }
-
-    if (!level || isNaN(Number(level))) {
-      res.status(400).json({
-        success: false,
-        error: 'Level parameter is required and must be a number'
-      });
-      return;
-    }
-
-    const result = await contextWindowService.getTestCasesByLevel(contextWindowId, Number(level));
-    res.json(result);
-
-  } catch (error) {
-    console.error('❌ Error getting test cases by level:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to get test cases by level'
-    });
-  }
-};
 
 /**
  * Get test cases by parent

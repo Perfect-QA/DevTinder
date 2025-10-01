@@ -6,7 +6,6 @@ export interface TestCaseContext {
   expectedResult: string;
   priority: 'P1' | 'P2' | 'P3';
   parentId?: string | undefined;
-  level: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -20,8 +19,6 @@ export interface ContextWindow {
   rootPrompt: string;
   fileIds: string[];
   testCases: TestCaseContext[];
-  currentLevel: number;
-  maxLevel: number;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -43,22 +40,8 @@ export interface ContextWindowResponse {
   error?: string;
 }
 
-export interface ContextNavigation {
-  currentLevel: number;
-  maxLevel: number;
-  canGoBack: boolean;
-  canGoForward: boolean;
-  breadcrumb: Array<{
-    level: number;
-    testCaseId: string;
-    summary: string;
-  }>;
-}
 
 export interface ContextWindowStats {
   totalTestCases: number;
-  levelsCount: number;
-  testCasesByLevel: Record<number, number>;
   testCasesByPriority: Record<string, number>;
-  averageTestCasesPerLevel: number;
 }
