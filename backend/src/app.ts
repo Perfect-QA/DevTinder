@@ -19,9 +19,6 @@ import authRouter from "./routes/auth";
 import profileRouter from "./routes/profile";
 import userRouter from "./routes/user";
 import testGenerationRouter from "./routes/testGeneration";
-import openaiAdminRouter from "./routes/openaiAdmin";
-import adminAuditRouter from "./routes/adminAudit";
-import adminUsersRouter from "./routes/adminUsers";
 import multer from "multer";
 import path from "path";
 import { 
@@ -114,9 +111,6 @@ app.use("/auth", authRouter);
 app.use("/", profileRouter);
 app.use("/", userRouter);
 app.use("/api/test-generation", testGenerationRouter);
-app.use("/admin/openai", openaiAdminRouter);
-app.use("/admin/audit", adminAuditRouter);
-app.use("/admin/users", adminUsersRouter);
 
 app.get("/feed", userAuth, async (req: any, res: Response): Promise<void> => {
   try {
